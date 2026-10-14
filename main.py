@@ -1,7 +1,7 @@
 
 import json
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -98,13 +98,21 @@ def listar_pedidos(db: Session = Depends(get_db)):
 # ATENDIMENTO COM AGENTES DE IA
 # ============================================================
 
-@app.post(
-    "/atender",
-    response_model=RespostaAgente
-)
-def atender_cliente(entrada: EntradaUsuario):
+@app.post("/atender",response_model=RespostaAgente)
+def atender_cliente(
+    entrada: EntradaUsuario,
+    idempotency_key: str = Header(
+        ...,
+        alias="Idempotency-Key",
+        min_length=1,
+        max_length=128
+    )
+):
 
-    resultado = processar_pedido(entrada.mensagem)
+    resultado = processar_pedido(
+        mensagem_usuario=entrada.mensagem,
+        chave_idempotencia=idempotency_key
+    )
     tempo_ms = resultado.get("tempo_ms", 0)
 
     if resultado.get("sucesso") is True:

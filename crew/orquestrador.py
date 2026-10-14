@@ -5,7 +5,7 @@ import json
 
 os.environ["CREWAI_DISABLE_TELEMETRY"] = "true"
 
-# Compatibilidade temporária CrewAI + Groq
+# Workaround temporario para CrewAI + Groq
 import crewai.llms.cache as crew_cache
 crew_cache.mark_cache_breakpoint = lambda msg: msg
 
@@ -21,55 +21,61 @@ from database import crud
 from schemas.pedido import PedidoMultiploCreate
 
 
-def processar_pedido(mensagem_usuario: str) -> dict:
-    inicio = time.time()
+def processar_pedido(
+    mensagem_usuario: str,
+    chave_idempotencia: str
+) -> dict:
 
+    inicio = time.perf_counter()
     db = None
-    pedido_persistido = False
+    resultado_compra = None
+
+    def tempo_decorrido():
+        return int((time.perf_counter() - inicio) * 1000)
 
     try:
-        init_db()
+        if not isinstance(mensagem_usuario, str):
+            raise ValueError("Mensagem invalida.")
 
         if not mensagem_usuario.strip():
-            raise ValueError("Mensagem não pode ser vazia.")
+            raise ValueError("Mensagem vazia.")
+
+        if not isinstance(chave_idempotencia, str):
+            raise ValueError("Chave de idempotencia invalida.")
+
+        if not 1 <= len(chave_idempotencia.strip()) <= 128:
+            raise ValueError("Chave de idempotencia invalida.")
+
+        init_db()
 
         # ====================================================
-        # 1. CONTEXTO RAG
+        # ETAPA 1 - RECUPERACAO DE CONTEXTO
         # ====================================================
 
         contexto_rag = buscar_contexto(mensagem_usuario)
 
-        # ====================================================
-        # 2. AGENTES
-        # ====================================================
-
         agente_triagem = criar_agente_triagem()
-        agente_inventario = criar_agente_inventario()
-        agente_escrita = criar_agente_escrita()
 
         # ====================================================
-        # 3. TRIAGEM
+        # ETAPA 2 - TRIAGEM
         # ====================================================
 
         tarefa_triagem = Task(
             description=(
-                "Extraia fielmente os dados do pedido.\n\n"
-                f"Mensagem: {mensagem_usuario}\n\n"
-                "Retorne somente JSON com esta estrutura:\n"
-                '{'
-                '"cliente_nome": "João", '
-                '"itens": ['
-                '{"produto_nome": "Arroz", "quantidade": 2}, '
-                '{"produto_nome": "Feijão", "quantidade": 1}'
-                ']'
-                '}\n\n'
-                "O JSON acima é apenas um exemplo de formato. "
-                "Use exclusivamente os dados da mensagem real. "
-                "Não invente informações. "
-                "Não confirme vendas."
+                "Interprete a mensagem do cliente e extraia "
+                "o nome e todos os produtos solicitados.\n\n"
+                f"Mensagem:\n{mensagem_usuario}\n\n"
+                "Retorne exclusivamente JSON no formato:\n"
+                '{"cliente_nome":"João","itens":['
+                '{"produto_nome":"Arroz","quantidade":2},'
+                '{"produto_nome":"Feijão","quantidade":1}'
+                ']}\n\n'
+                "O JSON é somente um exemplo de estrutura. "
+                "Utilize os dados reais da mensagem. "
+                "Nao invente informacoes e nao confirme vendas."
             ),
             expected_output=(
-                "JSON válido contendo cliente_nome e itens."
+                "JSON com cliente_nome e lista de itens."
             ),
             agent=agente_triagem
         )
@@ -82,43 +88,35 @@ def processar_pedido(mensagem_usuario: str) -> dict:
             cache=False
         )
 
-        resultado_triagem = crew_triagem.kickoff()
-
-        # ====================================================
-        # 4. VALIDAÇÃO PYDANTIC
-        # ====================================================
+        saida = crew_triagem.kickoff()
+        texto_triagem = saida.tasks_output[0].raw
 
         try:
-            dados = json.loads(
-                resultado_triagem.tasks_output[0].raw
-            )
-        except (json.JSONDecodeError, IndexError) as exc:
+            dados = json.loads(texto_triagem)
+        except json.JSONDecodeError as exc:
             raise ValueError(
-                "Triagem não retornou JSON válido."
+                "Triagem retornou JSON invalido."
             ) from exc
 
         pedido = PedidoMultiploCreate.model_validate(dados)
 
         # ====================================================
-        # 5. AGENTE DE INVENTÁRIO
+        # ETAPA 3 - INVENTARIO CONSULTIVO
         # ====================================================
-        # Análise consultiva. Não autoriza vendas.
-        # A verificação definitiva ocorre no SQLite.
+
+        agente_inventario = criar_agente_inventario()
 
         tarefa_inventario = Task(
             description=(
-                "Analise o pedido estruturado a seguir:\n"
+                "Analise o pedido estruturado:\n"
                 f"{pedido.model_dump_json()}\n\n"
-                f"Contexto RAG:\n{contexto_rag}\n\n"
-                "Identifique possíveis inconsistências "
-                "ou informações ausentes. "
-                "Não invente preços nem quantidades. "
-                "Não confirme disponibilidade. "
-                "A verificação definitiva será feita "
-                "pelo banco de dados."
+                f"Contexto do negocio:\n{contexto_rag}\n\n"
+                "Identifique possiveis inconsistencias. "
+                "Nao confirme estoque nem invente precos. "
+                "O banco SQLite fara a verificacao definitiva."
             ),
             expected_output=(
-                "Relatório consultivo sobre o pedido."
+                "Analise consultiva das informacoes do pedido."
             ),
             agent=agente_inventario
         )
@@ -134,118 +132,120 @@ def processar_pedido(mensagem_usuario: str) -> dict:
         crew_inventario.kickoff()
 
         # ====================================================
-        # 6. REGISTRO REAL NO SQLITE
+        # ETAPA 4 - PERSISTENCIA REAL DA COMPRA V2
         # ====================================================
 
         db = SessionLocal()
 
-        resultado_pedido = crud.registrar_pedido_seguro(
+        resultado_compra = crud.registrar_compra_segura(
             db=db,
             cliente_nome=pedido.cliente_nome,
             itens=[
                 item.model_dump()
                 for item in pedido.itens
-            ]
+            ],
+            chave_idempotencia=chave_idempotencia.strip()
         )
 
-        # O commit ocorreu dentro da função CRUD.
-        pedido_persistido = True
+        # O CRUD retorna somente apos o commit.
+        # A partir daqui a compra ja esta persistida.
 
         # ====================================================
-        # 7. ESCRITA APÓS O REGISTRO
+        # ETAPA 5 - CONFIRMACAO AO CLIENTE
         # ====================================================
 
-        resumo_padrao = (
-            f"Pedido registrado para "
-            f"{pedido.cliente_nome}. "
+        resumo = (
+            f"Compra {resultado_compra['compra_id']} "
+            f"registrada para {pedido.cliente_nome}. "
             f"Valor total: "
-            f"R$ {resultado_pedido['valor_total']:.2f}."
+            f"R$ {resultado_compra['valor_total']:.2f}."
         )
 
-        resumo_final = resumo_padrao
+        # Nao executar novamente o agente de escrita
+        # se a requisicao ja foi registrada.
+        if not resultado_compra["requisicao_repetida"]:
+            try:
+                agente_escrita = criar_agente_escrita()
 
-        try:
-            tarefa_escrita = Task(
-                description=(
-                    "Produza uma mensagem curta e clara "
-                    "para o cliente sobre um pedido "
-                    "JÁ REGISTRADO no banco.\n\n"
-                    "Dados confirmados:\n"
-                    f"{json.dumps(resultado_pedido, ensure_ascii=False)}\n\n"
-                    "Não altere preços, quantidades "
-                    "ou informações do pedido. "
-                    "Não solicite nova gravação."
-                ),
-                expected_output=(
-                    "Mensagem de confirmação em português."
-                ),
-                agent=agente_escrita
-            )
+                tarefa_escrita = Task(
+                    description=(
+                        "Escreva uma mensagem curta de confirmacao "
+                        "de uma compra ja registrada.\n\n"
+                        f"Dados: {json.dumps(resultado_compra, ensure_ascii=False)}\n\n"
+                        "Nao modifique valores nem quantidades. "
+                        "Nao execute operacoes no banco."
+                    ),
+                    expected_output=(
+                        "Mensagem curta em portugues."
+                    ),
+                    agent=agente_escrita
+                )
 
-            crew_escrita = Crew(
-                agents=[agente_escrita],
-                tasks=[tarefa_escrita],
-                process=Process.sequential,
-                verbose=True,
-                cache=False
-            )
+                crew_escrita = Crew(
+                    agents=[agente_escrita],
+                    tasks=[tarefa_escrita],
+                    process=Process.sequential,
+                    verbose=True,
+                    cache=False
+                )
 
-            resultado_escrita = crew_escrita.kickoff()
+                crew_escrita.kickoff()
 
-            if resultado_escrita.tasks_output:
-                texto = resultado_escrita.tasks_output[0].raw
-                if texto and texto.strip():
-                    # Texto gerado não substitui os dados
-                    # estruturados e confirmados pelo banco.
-                    resumo_final = texto.strip()
+                # Mantemos como resposta oficial o resumo
+                # deterministico produzido com dados do banco.
 
-        except Exception:
-            # Uma falha de escrita não desfaz uma venda
-            # que já foi gravada com sucesso.
-            resumo_final = resumo_padrao
+            except Exception:
+                # Falha na redacao nao cancela compra gravada.
+                pass
 
         # ====================================================
-        # 8. LOG
+        # ETAPA 6 - LOG
         # ====================================================
-
-        tempo_ms = int((time.time() - inicio) * 1000)
 
         try:
             crud.registrar_log(
                 db=db,
-                acao="pedido_completo",
+                acao=(
+                    "compra_repetida"
+                    if resultado_compra["requisicao_repetida"]
+                    else "compra_confirmada"
+                ),
                 entrada=mensagem_usuario,
                 resposta=json.dumps(
-                    resultado_pedido,
+                    resultado_compra,
                     ensure_ascii=False
                 ),
-                tempo_ms=tempo_ms,
+                tempo_ms=tempo_decorrido(),
                 sucesso="sim"
             )
         except Exception:
             db.rollback()
-            # O pedido já foi confirmado no banco.
-            # Falha de log não altera seu resultado.
 
         return {
             "sucesso": True,
-            "resultado": resultado_pedido,
-            "resposta": resumo_final,
-            "tempo_ms": tempo_ms
+            "resultado": resultado_compra,
+            "resposta": resumo,
+            "tempo_ms": tempo_decorrido()
         }
 
-    except Exception as e:
-        tempo_ms = int((time.time() - inicio) * 1000)
-
+    except Exception as erro:
         if db is not None:
             db.rollback()
 
-        # Não registrar como venda concluída se o
-        # commit da operação ainda não ocorreu.
+        # Se ja houve commit, nao informar que
+        # a compra falhou.
+        if resultado_compra is not None:
+            return {
+                "sucesso": True,
+                "resultado": resultado_compra,
+                "resposta": "Compra registrada com sucesso.",
+                "tempo_ms": tempo_decorrido()
+            }
+
         return {
-            "sucesso": pedido_persistido,
-            "erro": str(e),
-            "tempo_ms": tempo_ms
+            "sucesso": False,
+            "erro": str(erro),
+            "tempo_ms": tempo_decorrido()
         }
 
     finally:
