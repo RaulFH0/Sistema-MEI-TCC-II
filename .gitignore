@@ -1,0 +1,36 @@
+
+# Segredos e configurações locais
+.env
+.env.*
+!.env.example
+
+# Ambientes virtuais
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Bancos de dados locais
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Armazenamento vetorial
+chroma_db/
+
+# Logs e arquivos temporários
+*.log
+*.tmp
+backups/
+
+# Configurações locais
+.vscode/
+.idea/

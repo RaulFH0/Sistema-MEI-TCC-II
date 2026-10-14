@@ -1,0 +1,27 @@
+CATÁLOGO DE PRODUTOS E REGRAS DO NEGÓCIO
+==========================================
+
+PRODUTOS DISPONÍVEIS:
+- Arroz (5kg): R$ 25,00 | Estoque mínimo: 10 unidades
+- Feijão (1kg): R$ 8,50 | Estoque mínimo: 15 unidades
+- Açúcar (1kg): R$ 4,80 | Estoque mínimo: 20 unidades
+- Óleo de soja (900ml): R$ 7,20 | Estoque mínimo: 10 unidades
+- Farinha de trigo (1kg): R$ 5,50 | Estoque mínimo: 10 unidades
+- Macarrão (500g): R$ 4,00 | Estoque mínimo: 20 unidades
+- Sal (1kg): R$ 2,50 | Estoque mínimo: 15 unidades
+- Café (250g): R$ 12,00 | Estoque mínimo: 10 unidades
+
+REGRAS DO NEGÓCIO:
+- Pedidos mínimos: 1 unidade por produto
+- Pedidos máximos: 50 unidades por produto por vez
+- Prazo de entrega: retirada no local ou combinar entrega
+- Formas de pagamento: dinheiro, PIX, cartão débito
+- Horário de funcionamento: segunda a sábado, 7h às 18h
+- Não fazemos fiado
+- Produtos com estoque abaixo do mínimo precisam de reposição
+
+PERGUNTAS FREQUENTES:
+- Como fazer um pedido? Informe seu nome, o produto e a quantidade desejada.
+- Posso pagar no PIX? Sim, aceitamos PIX.
+- Tem entrega? Combinamos entrega para pedidos acima de R$ 50,00.
+- Aceitam cartão de crédito? Apenas débito e PIX.
