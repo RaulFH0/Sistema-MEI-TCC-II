@@ -405,7 +405,8 @@ def registrar_compra_segura(
     db: Session,
     cliente_nome: str,
     itens: list[dict],
-    chave_idempotencia: str
+    chave_idempotencia: str,
+    mensagem_original: str | None = None
 ):
     cliente = _validar_nome(
         cliente_nome, "Nome do cliente"
@@ -417,6 +418,19 @@ def registrar_compra_segura(
 
     if len(chave) > 128:
         raise ValueError("Chave de idempotencia muito longa.")
+
+    hash_mensagem = None
+
+    if mensagem_original is not None:
+        if not isinstance(mensagem_original, str):
+            raise ValueError("Mensagem original invalida.")
+
+        if not mensagem_original.strip():
+            raise ValueError("Mensagem original vazia.")
+
+        hash_mensagem = hashlib.sha256(
+            mensagem_original.encode("utf-8")
+        ).hexdigest()
 
     if not isinstance(itens, list) or not itens:
         raise ValueError("Compra sem produtos.")
@@ -485,11 +499,30 @@ def registrar_compra_segura(
         }
 
     def verificar_existente(compra):
+    # Verificar se os dados estruturados sao iguais
         if compra.hash_solicitacao != hash_solicitacao:
             raise ValueError(
                 "Chave de idempotencia ja utilizada "
                 "com dados diferentes."
             )
+
+        # V2.2: verificar a mensagem original
+        if compra.hash_mensagem is not None:
+
+            if hash_mensagem is None:
+                raise ValueError(
+                    "Mensagem original obrigatoria "
+                    "para reutilizar esta chave."
+                )
+
+            if compra.hash_mensagem != hash_mensagem:
+                raise ValueError(
+                    "Chave de idempotencia utilizada "
+                    "com mensagem diferente."
+                )
+
+        # Compras anteriores a V2.2 continuam usando
+        # a verificacao do conteudo estruturado.
         return apresentar(compra, repetida=True)
 
     # 3. Verificar compra previamente confirmada
@@ -508,9 +541,10 @@ def registrar_compra_segura(
             cliente_nome=cliente,
             chave_idempotencia=chave,
             hash_solicitacao=hash_solicitacao,
+            hash_mensagem=hash_mensagem,
             valor_total=0,
             status="confirmado"
-        )
+)
 
         db.add(compra)
         db.flush()
@@ -606,3 +640,80 @@ def registrar_compra_segura(
     except Exception:
         db.rollback()
         raise
+
+def consultar_compra_por_mensagem(
+    db: Session,
+    chave_idempotencia: str,
+    mensagem_original: str
+) -> dict | None:
+    """
+    Consulta uma compra existente antes de executar a IA.
+
+    Retorna:
+    - None: chave ainda nao utilizada;
+    - dict: compra existente com mensagem identica;
+    - ValueError: chave reutilizada com mensagem diferente.
+
+    Compras antigas sem hash_mensagem nao sao
+    retornadas antecipadamente.
+    """
+
+    chave = _validar_nome(
+        chave_idempotencia,
+        "Chave de idempotencia"
+    )
+
+    if len(chave) > 128:
+        raise ValueError(
+            "Chave de idempotencia muito longa."
+        )
+
+    if (
+        not isinstance(mensagem_original, str)
+        or not mensagem_original.strip()
+    ):
+        raise ValueError("Mensagem original invalida.")
+
+    hash_atual = hashlib.sha256(
+        mensagem_original.encode("utf-8")
+    ).hexdigest()
+
+    compra = (
+        db.query(Compra)
+        .filter(Compra.chave_idempotencia == chave)
+        .first()
+    )
+
+    if compra is None:
+        return None
+
+    # Compra antiga: precisa passar pela triagem
+    # para validar o conteudo estruturado.
+    if compra.hash_mensagem is None:
+        return None
+
+    if compra.hash_mensagem != hash_atual:
+        raise ValueError(
+            "Chave de idempotencia utilizada "
+            "com mensagem diferente."
+        )
+
+    return {
+        "pedido_confirmado": True,
+        "compra_id": compra.id,
+        "cliente_nome": compra.cliente_nome,
+        "itens": [
+            {
+                "produto_nome": item.produto_nome,
+                "quantidade": item.quantidade,
+                "preco_unitario": item.preco_unitario / 100,
+                "subtotal": item.subtotal / 100
+            }
+            for item in sorted(
+                compra.itens,
+                key=lambda item: item.id
+            )
+        ],
+        "valor_total": compra.valor_total / 100,
+        "requisicao_repetida": True
+    }

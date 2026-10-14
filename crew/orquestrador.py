@@ -49,6 +49,33 @@ def processar_pedido(
         init_db()
 
         # ====================================================
+        # V2.2 - CONSULTA ANTECIPADA DE IDEMPOTENCIA
+        # ====================================================
+
+        db = SessionLocal()
+
+        compra_existente = crud.consultar_compra_por_mensagem(
+            db=db,
+            chave_idempotencia=chave_idempotencia.strip(),
+            mensagem_original=mensagem_usuario
+        )
+
+        if compra_existente is not None:
+            return {
+                "sucesso": True,
+                "resultado": compra_existente,
+                "resposta": (
+                    f"Compra {compra_existente['compra_id']} "
+                    "ja registrada anteriormente."
+                ),
+                "tempo_ms": tempo_decorrido()
+            }
+
+        # Liberar a conexao antes de executar os agentes.
+        db.close()
+        db = None
+
+        # ====================================================
         # ETAPA 1 - RECUPERACAO DE CONTEXTO
         # ====================================================
 
@@ -144,7 +171,8 @@ def processar_pedido(
                 item.model_dump()
                 for item in pedido.itens
             ],
-            chave_idempotencia=chave_idempotencia.strip()
+            chave_idempotencia=chave_idempotencia.strip(),
+            mensagem_original=mensagem_usuario
         )
 
         # O CRUD retorna somente apos o commit.

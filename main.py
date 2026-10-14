@@ -1,5 +1,6 @@
 
 import json
+import logging
 
 from fastapi import FastAPI, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
@@ -7,6 +8,7 @@ from typing import List
 
 from database.models import init_db, get_db
 from database import crud
+from contextlib import asynccontextmanager
 
 from schemas.pedido import (
     ProdutoCreate,
@@ -21,21 +23,15 @@ from crew.orquestrador import processar_pedido
 
 
 # ============================================================
-# INICIALIZAÇÃO
+# CONFIGURACOES
 # ============================================================
 
-app = FastAPI(
-    title="Sistema MEI - Agentes de IA",
-    description=(
-        "Sistema multiagente para atendimento "
-        "e controle de estoque de microempreendedores"
-    ),
-    version="1.1.0"
-)
+logger = logging.getLogger(__name__)
 
+VERSAO_API = "1.2.2"
 
-@app.on_event("startup")
-def startup():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     print("Inicializando banco de dados...")
     init_db()
 
@@ -43,6 +39,89 @@ def startup():
     carregar_base_conhecimento()
 
     print("Sistema pronto!")
+
+    yield
+
+    print("Encerrando Sistema MEI.")
+
+app = FastAPI(
+    title="Sistema MEI - Agentes de IA",
+    description=(
+        "Sistema multiagente para atendimento "
+        "e controle de estoque de microempreendedores"
+    ),
+    version=VERSAO_API,
+    lifespan=lifespan
+)
+
+
+
+
+
+# ============================================================
+# TRATAMENTO DE ERROS DE ATENDIMENTO
+# ============================================================
+
+def identificar_erro_atendimento(erro: str):
+    """
+    Classifica erros conhecidos retornados pelo orquestrador.
+
+    O orquestrador atual retorna erros como texto.
+    Essa classificacao e temporaria ate adotarmos
+    erros estruturados e excecoes especificas.
+    """
+
+    mensagem = str(erro).strip()
+    texto = mensagem.casefold()
+
+    # Reutilizacao indevida da chave de idempotencia
+    if (
+        "chave de idempotencia" in texto
+        and (
+            "mensagem diferente" in texto
+            or "dados diferentes" in texto
+            or "ja utilizada" in texto
+        )
+    ):
+        return 409, mensagem
+
+    # Conflitos comerciais relacionados ao estoque
+    if (
+        "estoque insuficiente" in texto
+        or "duplicado" in texto
+    ):
+        return 409, mensagem
+
+    # Erros conhecidos de validacao do pedido
+    erros_validacao = (
+        "mensagem vazia",
+        "mensagem invalida",
+        "mensagem original invalida",
+        "mensagem original vazia",
+        "chave de idempotencia invalida",
+        "chave de idempotencia muito longa",
+        "mensagem original obrigatoria",
+        "quantidade",
+        "limite de 50",
+        "compra sem produtos",
+        "pedido sem produtos",
+        "nao cadastrado",
+        "não cadastrado",
+        "produto inexistente",
+        "item invalido",
+        "item inválido",
+        "nome do cliente",
+        "nome do produto",
+    )
+
+    if any(
+        trecho in texto
+        for trecho in erros_validacao
+    ):
+        return 422, mensagem
+
+    # Erros desconhecidos nao devem expor detalhes internos
+    return 500, "Erro interno ao processar o atendimento."
 
 
 # ============================================================
@@ -53,7 +132,9 @@ def startup():
     "/produtos",
     response_model=List[ProdutoResponse]
 )
-def listar_produtos(db: Session = Depends(get_db)):
+def listar_produtos(
+    db: Session = Depends(get_db)
+):
     return crud.listar_produtos(db)
 
 
@@ -83,22 +164,27 @@ def criar_produto(
 
 
 # ============================================================
-# ROTAS DE PEDIDOS
+# ROTAS DE PEDIDOS LEGADOS
 # ============================================================
 
 @app.get(
     "/pedidos",
     response_model=List[PedidoResponse]
 )
-def listar_pedidos(db: Session = Depends(get_db)):
+def listar_pedidos(
+    db: Session = Depends(get_db)
+):
     return crud.listar_pedidos(db)
 
 
 # ============================================================
-# ATENDIMENTO COM AGENTES DE IA
+# ATENDIMENTO COM AGENTES DE IA - V2.2
 # ============================================================
 
-@app.post("/atender",response_model=RespostaAgente)
+@app.post(
+    "/atender",
+    response_model=RespostaAgente
+)
 def atender_cliente(
     entrada: EntradaUsuario,
     idempotency_key: str = Header(
@@ -108,25 +194,78 @@ def atender_cliente(
         max_length=128
     )
 ):
+    """
+    Processa uma solicitacao de compra.
 
-    resultado = processar_pedido(
-        mensagem_usuario=entrada.mensagem,
-        chave_idempotencia=idempotency_key
-    )
+    A chave de idempotencia permite identificar
+    reenvios sem registrar outra compra.
+
+    Codigos:
+    200 - Atendimento confirmado ou repetido
+    409 - Conflito de chave ou estoque
+    422 - Dados invalidos
+    500 - Falha interna
+    """
+
+    try:
+        resultado = processar_pedido(
+            mensagem_usuario=entrada.mensagem,
+            chave_idempotencia=idempotency_key
+        )
+
+    except Exception:
+        logger.exception(
+            "Falha inesperada na rota /atender"
+        )
+
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Erro interno ao processar o atendimento. "
+                "Consulte o estado da compra antes de reenviar."
+            )
+        )
+
     tempo_ms = resultado.get("tempo_ms", 0)
+
+    # ========================================================
+    # COMPRA CONFIRMADA OU REQUISICAO REPETIDA
+    # ========================================================
 
     if resultado.get("sucesso") is True:
 
         pedido = resultado["resultado"]
 
-        # A confirmação utiliza somente os dados
-        # persistidos pelo CRUD.
+        compra_id = pedido["compra_id"]
+        cliente = pedido["cliente_nome"]
+        total = pedido["valor_total"]
+
+        valor_formatado = (
+            f"R$ {total:.2f}".replace(".", ",")
+        )
+
+        if pedido.get("requisicao_repetida"):
+            acao = "pedido_repetido"
+
+            mensagem = (
+                f"Compra #{compra_id} de {cliente} "
+                f"ja registrada anteriormente. "
+                f"Valor total: {valor_formatado}. "
+                "Nenhuma nova compra foi realizada."
+            )
+
+        else:
+            acao = "pedido_confirmado"
+
+            mensagem = (
+                f"Compra #{compra_id} de {cliente} "
+                f"confirmada com sucesso! "
+                f"Valor total: {valor_formatado}."
+            )
+
         return RespostaAgente(
-            resposta=json.dumps(
-                pedido,
-                ensure_ascii=False
-            ),
-            acao_executada="pedido_confirmado",
+            resposta=mensagem,
+            acao_executada=acao,
             sucesso=True,
             dados={
                 "tempo_ms": tempo_ms,
@@ -134,21 +273,38 @@ def atender_cliente(
             }
         )
 
-    return RespostaAgente(
-        resposta=(
-            "Não foi possível confirmar o pedido: "
-            f"{resultado.get('erro', 'erro desconhecido')}"
-        ),
-        acao_executada="pedido_nao_confirmado",
-        sucesso=False,
-        dados={
+    # ========================================================
+    # ATENDIMENTO REJEITADO
+    # ========================================================
+
+    erro = resultado.get(
+        "erro",
+        "Erro desconhecido."
+    )
+
+    codigo_http, mensagem_erro = (
+        identificar_erro_atendimento(erro)
+    )
+
+    if codigo_http == 500:
+        logger.error(
+            "Erro nao classificado no atendimento: %s",
+            erro
+        )
+
+    raise HTTPException(
+        status_code=codigo_http,
+        detail={
+            "sucesso": False,
+            "acao_executada": "pedido_nao_confirmado",
+            "mensagem": mensagem_erro,
             "tempo_ms": tempo_ms
         }
     )
 
 
 # ============================================================
-# ROTA DE SAÚDE
+# ROTA DE SAUDE
 # ============================================================
 
 @app.get("/")
@@ -156,5 +312,5 @@ def health_check():
     return {
         "status": "online",
         "sistema": "MEI Agentes IA",
-        "versao": "1.1.0"
+        "versao": VERSAO_API
     }

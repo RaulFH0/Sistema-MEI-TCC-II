@@ -6,7 +6,7 @@ from sqlalchemy import event
 from sqlalchemy import ForeignKey, UniqueConstraint, CheckConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 
@@ -119,6 +119,12 @@ class Compra(Base):
     String(64),
     nullable=True
     )
+
+    hash_mensagem = Column(
+        String(64), 
+        nullable=True
+    )
+
     valor_total = Column(
         Integer,
         nullable=False,

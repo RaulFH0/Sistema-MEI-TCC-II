@@ -1,50 +1,101 @@
-from pydantic import BaseModel, Field, validator
-from typing import Optional
+
 from datetime import datetime
+from typing import Optional
+
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+)
+
 
 # ============================================================
 # SCHEMAS DE PRODUTO
 # ============================================================
+
 class ProdutoBase(BaseModel):
-    nome: str = Field(..., min_length=1, description="Nome do produto")
-    preco: float = Field(..., gt=0, description="Preço deve ser maior que zero")
-    quantidade: int = Field(..., ge=0, description="Quantidade não pode ser negativa")
+    nome: str = Field(
+        ...,
+        min_length=1,
+        description="Nome do produto"
+    )
+
+    preco: float = Field(
+        ...,
+        gt=0,
+        description="Preço deve ser maior que zero"
+    )
+
+    quantidade: int = Field(
+        ...,
+        ge=0,
+        description="Quantidade não pode ser negativa"
+    )
+
     descricao: Optional[str] = ""
     categoria: Optional[str] = ""
+
 
 class ProdutoCreate(ProdutoBase):
     pass
 
+
 class ProdutoResponse(ProdutoBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     criado_em: datetime
     atualizado_em: datetime
-
-    class Config:
-        from_attributes = True
 
 
 # ============================================================
 # SCHEMAS DE PEDIDO
 # ============================================================
+
 class PedidoCreate(BaseModel):
-    cliente_nome: str = Field(..., min_length=1, description="Nome do cliente")
-    produto_nome: str = Field(..., min_length=1, description="Nome do produto")
-    quantidade: int = Field(..., gt=0, description="Quantidade deve ser maior que zero")
+    cliente_nome: str = Field(
+        ...,
+        min_length=1,
+        description="Nome do cliente"
+    )
 
-    @validator("cliente_nome")
-    def nome_nao_vazio(cls, v):
-        if not v.strip():
-            raise ValueError("Nome do cliente não pode ser vazio")
-        return v.strip()
+    produto_nome: str = Field(
+        ...,
+        min_length=1,
+        description="Nome do produto"
+    )
 
-    @validator("quantidade")
-    def quantidade_valida(cls, v):
-        if v > 50:
-            raise ValueError("Quantidade máxima por pedido é 50 unidades")
-        return v
+    quantidade: int = Field(
+        ...,
+        gt=0,
+        description="Quantidade deve ser maior que zero"
+    )
+
+    @field_validator("cliente_nome")
+    @classmethod
+    def nome_nao_vazio(cls, valor: str):
+        if not valor.strip():
+            raise ValueError(
+                "Nome do cliente não pode ser vazio"
+            )
+
+        return valor.strip()
+
+    @field_validator("quantidade")
+    @classmethod
+    def quantidade_valida(cls, valor: int):
+        if valor > 50:
+            raise ValueError(
+                "Quantidade máxima por pedido é 50 unidades"
+            )
+
+        return valor
+
 
 class PedidoResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     cliente_nome: str
     produto_nome: str
@@ -53,17 +104,20 @@ class PedidoResponse(BaseModel):
     status: str
     criado_em: datetime
 
-    class Config:
-        from_attributes = True
-
 
 # ============================================================
 # SCHEMA DE ENTRADA DO AGENTE
-# (o que o usuário digita em linguagem natural)
 # ============================================================
+
 class EntradaUsuario(BaseModel):
-    mensagem: str = Field(..., min_length=1, description="Mensagem do usuário")
+    mensagem: str = Field(
+        ...,
+        min_length=1,
+        description="Mensagem do usuário"
+    )
+
     contexto: Optional[str] = ""
+
 
 class RespostaAgente(BaseModel):
     resposta: str
@@ -75,9 +129,6 @@ class RespostaAgente(BaseModel):
 # ============================================================
 # SCHEMAS PARA PEDIDOS COM MÚLTIPLOS PRODUTOS
 # ============================================================
-
-from pydantic import ConfigDict, field_validator
-
 
 class ItemPedido(BaseModel):
     model_config = ConfigDict(extra="forbid")
