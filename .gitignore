@@ -34,3 +34,6 @@ backups/
 # Configurações locais
 .vscode/
 .idea/
+
+# Bancos de dados experimentais
+sistema_mei_teste.db

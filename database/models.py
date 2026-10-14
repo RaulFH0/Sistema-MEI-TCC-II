@@ -1,3 +1,7 @@
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
 from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -62,7 +66,14 @@ class LogSistema(Base):
 # ============================================================
 # CONFIGURAÇÃO DO BANCO
 # ============================================================
-DATABASE_URL = "sqlite:///./sistema_mei.db"
+# Carrega as configurações do arquivo .env
+load_dotenv()
+
+# Usa o banco original quando nenhuma configuração é definida
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "sqlite:///./sistema_mei.db"
+)
 
 engine = create_engine(
     DATABASE_URL,
