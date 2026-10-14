@@ -17,7 +17,7 @@ from database.crud import registrar_pedido_seguro
 def main():
     url = make_url(DATABASE_URL)
     esperado = (
-        Path(__file__).resolve().parent
+        Path(__file__).resolve().parent.parent
         / "sistema_mei_teste.db"
     ).resolve()
 

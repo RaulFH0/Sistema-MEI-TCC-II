@@ -1,3 +1,7 @@
+import hashlib
+import json
+from sqlalchemy.exc import IntegrityError
+from database.models import Compra, ItemCompra
 
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
@@ -387,6 +391,217 @@ def registrar_log(
         db.commit()
         db.refresh(log)
         return log
+
+    except Exception:
+        db.rollback()
+        raise
+
+
+# ============================================================
+# COMPRAS V2 - MULTIPLOS ITENS E IDEMPOTENCIA
+# ============================================================
+
+def registrar_compra_segura(
+    db: Session,
+    cliente_nome: str,
+    itens: list[dict],
+    chave_idempotencia: str
+):
+    cliente = _validar_nome(
+        cliente_nome, "Nome do cliente"
+    )
+
+    chave = _validar_nome(
+        chave_idempotencia, "Chave de idempotencia"
+    )
+
+    if len(chave) > 128:
+        raise ValueError("Chave de idempotencia muito longa.")
+
+    if not isinstance(itens, list) or not itens:
+        raise ValueError("Compra sem produtos.")
+
+    # 1. Normalizar e consolidar itens
+    normalizados = {}
+
+    for item in itens:
+        if not isinstance(item, dict):
+            raise ValueError("Item invalido.")
+
+        nome = _validar_nome(
+            item.get("produto_nome"), "Produto"
+        )
+        qtd = _validar_quantidade(
+            item.get("quantidade")
+        )
+
+        nome_normalizado = nome.casefold()
+
+        normalizados[nome_normalizado] = (
+            normalizados.get(nome_normalizado, 0) + qtd
+        )
+
+    for nome, qtd in normalizados.items():
+        if qtd > LIMITE_POR_PRODUTO:
+            raise ValueError(
+                f"Limite de 50 unidades excedido: {nome}"
+            )
+
+    # 2. Hash canonico do conteudo da compra
+    assinatura = {
+        "cliente": cliente.casefold(),
+        "itens": sorted(normalizados.items())
+    }
+
+    conteudo = json.dumps(
+        assinatura,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":")
+    )
+
+    hash_solicitacao = hashlib.sha256(
+        conteudo.encode("utf-8")
+    ).hexdigest()
+
+    def apresentar(compra, repetida=False):
+        return {
+            "pedido_confirmado": True,
+            "compra_id": compra.id,
+            "cliente_nome": compra.cliente_nome,
+            "itens": [
+                {
+                    "produto_nome": item.produto_nome,
+                    "quantidade": item.quantidade,
+                    "preco_unitario": item.preco_unitario / 100,
+                    "subtotal": item.subtotal / 100
+                }
+                for item in sorted(
+                    compra.itens, key=lambda x: x.id
+                )
+            ],
+            "valor_total": compra.valor_total / 100,
+            "requisicao_repetida": repetida
+        }
+
+    def verificar_existente(compra):
+        if compra.hash_solicitacao != hash_solicitacao:
+            raise ValueError(
+                "Chave de idempotencia ja utilizada "
+                "com dados diferentes."
+            )
+        return apresentar(compra, repetida=True)
+
+    # 3. Verificar compra previamente confirmada
+    existente = (
+        db.query(Compra)
+        .filter(Compra.chave_idempotencia == chave)
+        .first()
+    )
+
+    if existente:
+        return verificar_existente(existente)
+
+    try:
+        # 4. Reservar a chave antes de baixar estoque
+        compra = Compra(
+            cliente_nome=cliente,
+            chave_idempotencia=chave,
+            hash_solicitacao=hash_solicitacao,
+            valor_total=0,
+            status="confirmado"
+        )
+
+        db.add(compra)
+        db.flush()
+
+        total_centavos = 0
+
+        # 5. Consultar produtos e atualizar estoque
+        for nome, qtd in sorted(normalizados.items()):
+            produtos = (
+                db.query(Produto)
+                .filter(
+                    func.lower(func.trim(Produto.nome))
+                    == nome
+                )
+                .all()
+            )
+
+            if not produtos:
+                raise ValueError(
+                    f"Produto '{nome}' nao cadastrado."
+                )
+
+            if len(produtos) > 1:
+                raise ValueError(
+                    f"Produto '{nome}' duplicado."
+                )
+
+            produto = produtos[0]
+            preco = _valor_decimal(produto.preco)
+
+            if preco <= 0:
+                raise ValueError("Preco invalido.")
+
+            preco_centavos = int(preco * 100)
+            subtotal = preco_centavos * qtd
+
+            atualizacao = db.execute(
+                update(Produto)
+                .where(
+                    Produto.id == produto.id,
+                    Produto.quantidade >= qtd
+                )
+                .values(
+                    quantidade=Produto.quantidade - qtd,
+                    atualizado_em=datetime.now()
+                )
+                .execution_options(
+                    synchronize_session=False
+                )
+            )
+
+            if atualizacao.rowcount != 1:
+                raise ValueError(
+                    f"Estoque insuficiente: {produto.nome}"
+                )
+
+            db.add(ItemCompra(
+                compra_id=compra.id,
+                produto_id=produto.id,
+                produto_nome=produto.nome,
+                quantidade=qtd,
+                preco_unitario=preco_centavos,
+                subtotal=subtotal
+            ))
+
+            total_centavos += subtotal
+
+        compra.valor_total = total_centavos
+
+        db.flush()
+        resultado = apresentar(compra)
+
+        # Uma transacao para compra, itens e estoque
+        db.commit()
+
+        return resultado
+
+    except IntegrityError:
+        db.rollback()
+
+        # Outra chamada pode ter gravado a mesma chave.
+        existente = (
+            db.query(Compra)
+            .filter(Compra.chave_idempotencia == chave)
+            .first()
+        )
+
+        if existente:
+            return verificar_existente(existente)
+
+        raise
 
     except Exception:
         db.rollback()

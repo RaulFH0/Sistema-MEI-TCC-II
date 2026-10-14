@@ -25,7 +25,7 @@ PRODUTOS_TESTE = [
 def popular_banco():
     # Impede que este script modifique o banco original.
     banco_esperado = (
-        Path(__file__).resolve().parent
+        Path(__file__).resolve().parent.parent
         / "sistema_mei_teste.db"
     ).resolve()
 
