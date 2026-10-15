@@ -208,3 +208,24 @@ class PedidoMultiploCreate(BaseModel):
                 )
 
         return itens
+
+
+# ============================================================
+# SCHEMAS DO HISTORICO DE COMPRAS V2
+# ============================================================
+
+class ItemCompraResponse(BaseModel):
+    produto_id: int
+    produto_nome: str
+    quantidade: int
+    preco_unitario: int
+    subtotal: int
+
+
+class CompraHistoricoResponse(BaseModel):
+    id: int
+    cliente_nome: str
+    valor_total: int
+    status: str
+    criado_em: datetime
+    itens: list[ItemCompraResponse]

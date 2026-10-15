@@ -1,3 +1,4 @@
+
 const API_BASE = '/api'
 
 export interface Produto {
@@ -37,14 +38,27 @@ export interface RespostaAtendimento {
   } | null
 }
 
+export class ApiError extends Error {
+  status: number
+
+  constructor(mensagem: string, status: number) {
+    super(mensagem)
+    this.name = 'ApiError'
+    this.status = status
+  }
+}
+
 export async function listarProdutos(): Promise<Produto[]> {
   const resposta = await fetch(`${API_BASE}/produtos`)
 
   if (!resposta.ok) {
-    throw new Error('Não foi possível carregar os produtos.')
+    throw new ApiError(
+      'Não foi possível carregar os produtos.',
+      resposta.status
+    )
   }
 
-  return resposta.json()
+  return (await resposta.json()) as Produto[]
 }
 
 export async function enviarMensagem(
@@ -64,13 +78,51 @@ export async function enviarMensagem(
 
   if (!resposta.ok) {
     const detalhe = dados?.detail
+
     const mensagemErro =
       typeof detalhe === 'string'
         ? detalhe
-        : detalhe?.mensagem || 'Erro ao processar atendimento.'
+        : detalhe?.mensagem ||
+          'Não foi possível processar o atendimento.'
 
-    throw new Error(mensagemErro)
+    throw new ApiError(mensagemErro, resposta.status)
   }
 
   return dados as RespostaAtendimento
+}
+
+
+
+export interface ItemHistorico {
+  produto_id: number
+  produto_nome: string
+  quantidade: number
+  preco_unitario: number
+  subtotal: number
+}
+
+export interface CompraHistorico {
+  id: number
+  cliente_nome: string
+  valor_total: number
+  status: string
+  criado_em: string
+  itens: ItemHistorico[]
+}
+
+export async function listarCompras(
+  limite = 50
+): Promise<CompraHistorico[]> {
+  const resposta = await fetch(
+    `/api/compras?limite=${limite}`
+  )
+
+  if (!resposta.ok) {
+    throw new ApiError(
+      'Não foi possível carregar o histórico de compras.',
+      resposta.status
+    )
+  }
+
+  return (await resposta.json()) as CompraHistorico[]
 }

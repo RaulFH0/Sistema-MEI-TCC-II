@@ -6,6 +6,10 @@ from fastapi import FastAPI, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from typing import List
 
+from sqlalchemy.orm import selectinload
+from database.models import Compra
+from schemas.pedido import CompraHistoricoResponse
+
 from database.models import init_db, get_db
 from database import crud
 from contextlib import asynccontextmanager
@@ -175,6 +179,60 @@ def listar_pedidos(
     db: Session = Depends(get_db)
 ):
     return crud.listar_pedidos(db)
+
+
+
+# ============================================================
+# HISTORICO DE COMPRAS V2
+# ============================================================
+
+@app.get(
+    "/compras",
+    response_model=List[CompraHistoricoResponse]
+)
+def listar_compras_v2(
+    limite: int = 50,
+    db: Session = Depends(get_db)
+):
+    if not 1 <= limite <= 100:
+        raise HTTPException(
+            status_code=422,
+            detail="O limite deve estar entre 1 e 100."
+        )
+
+    compras = (
+        db.query(Compra)
+        .options(selectinload(Compra.itens))
+        .order_by(Compra.id.desc())
+        .limit(limite)
+        .all()
+    )
+
+    return [
+        {
+            "id": compra.id,
+            "cliente_nome": compra.cliente_nome,
+            "valor_total": compra.valor_total,
+            "status": compra.status,
+            "criado_em": compra.criado_em,
+            "itens": [
+                {
+                    "produto_id": item.produto_id,
+                    "produto_nome": item.produto_nome,
+                    "quantidade": item.quantidade,
+                    "preco_unitario": item.preco_unitario,
+                    "subtotal": item.subtotal,
+                }
+                for item in sorted(
+                    compra.itens,
+                    key=lambda item: item.id
+                )
+            ],
+        }
+        for compra in compras
+    ]
+
+
 
 
 # ============================================================

@@ -1,0 +1,266 @@
+
+.atendimento {
+  width: 100%;
+}
+
+.atendimento-header {
+  margin-bottom: 28px;
+}
+
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 560px;
+  background: #fff;
+  border: 1px solid #e5eaf0;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.chat-conteudo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-height: 360px;
+  padding: 30px;
+}
+
+.chat-boas-vindas {
+  text-align: center;
+  color: #62758a;
+}
+
+.chat-boas-vindas h2 {
+  color: #182c42;
+  margin: 12px 0;
+}
+
+.chat-avatar {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin: 0 auto;
+  border-radius: 16px;
+  background: #e3f6ee;
+  color: #149675;
+  font-weight: 800;
+}
+
+.chat-exemplo {
+  font-size: 13px;
+  color: #8493a3;
+}
+
+.chat-linha {
+  display: flex;
+}
+
+.chat-linha.usuario {
+  justify-content: flex-end;
+}
+
+.chat-linha.assistente {
+  justify-content: flex-start;
+}
+
+.chat-balao {
+  max-width: 85%;
+  padding: 17px 20px;
+  border-radius: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.chat-balao.usuario {
+  background: #193a54;
+  color: #fff;
+}
+
+.chat-balao.assistente {
+  background: #f1f5f9;
+  color: #263b4f;
+}
+
+.chat-detalhe {
+  color: #718397;
+  font-size: 12px;
+}
+
+.chat-comprovante {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid #dce6ee;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.chat-comprovante-topo,
+.chat-item,
+.chat-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.chat-comprovante-topo {
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e5eaf0;
+}
+
+.chat-item {
+  padding: 9px 0;
+  font-size: 14px;
+}
+
+.chat-total {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #e5eaf0;
+}
+
+.chat-erro {
+  padding: 18px;
+  border: 1px solid #f2b8ae;
+  border-radius: 12px;
+  background: #fff2f0;
+  color: #9f382c;
+}
+
+.chat-erro button {
+  padding: 10px 15px;
+  border: 0;
+  border-radius: 9px;
+  background: #9f382c;
+  color: #fff;
+  cursor: pointer;
+}
+
+.chat-formulario {
+  padding: 22px;
+  border-top: 1px solid #e5eaf0;
+}
+
+.chat-formulario label {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: 600;
+  color: #263b4f;
+}
+
+.chat-formulario textarea {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid #dce3ec;
+  border-radius: 10px;
+  resize: vertical;
+  font: inherit;
+}
+
+.chat-formulario textarea:disabled {
+  background: #f3f5f8;
+}
+
+.chat-acoes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin-top: 14px;
+}
+
+.chat-acoes small {
+  color: #8190a0;
+}
+
+.chat-acoes button {
+  padding: 13px 22px;
+  border: 0;
+  border-radius: 10px;
+  background: #159a76;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chat-acoes button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 650px) {
+  .chat-conteudo {
+    padding: 16px;
+  }
+
+  .chat-balao {
+    max-width: 100%;
+  }
+
+  .chat-acoes {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* Tentativa recuperada apos atualizar a pagina */
+
+.chat-aviso {
+  padding: 18px;
+  border: 1px solid #b9d9f3;
+  border-radius: 12px;
+  background: #eef7ff;
+  color: #244c70;
+}
+
+.chat-aviso p {
+  line-height: 1.6;
+}
+
+.chat-aviso button {
+  padding: 11px 16px;
+  border: none;
+  border-radius: 9px;
+  background: #245c86;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chat-novo {
+  margin-top: 18px;
+  padding: 11px 16px;
+  border: 1px solid #159a76;
+  border-radius: 9px;
+  background: #fff;
+  color: #128866;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chat-novo:hover {
+  background: #e3f6ee;
+}
+
+.navigation button.nav-item {
+  appearance: none;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: #a2b3c8;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.navigation button.nav-item.active {
+  background: #27435c;
+  color: #fff;
+  font-weight: 600;
+}
+
+.navigation button.nav-item:hover:not(.active) {
+  background: #213750;
+  color: #fff;
+}

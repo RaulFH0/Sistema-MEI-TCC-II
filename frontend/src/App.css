@@ -301,3 +301,36 @@ td {
     width: 100%;
   }
 }
+
+
+/* Menu lateral */
+
+.navigation button.nav-item {
+  appearance: none;
+  display: block;
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  padding: 13px 15px;
+  background: transparent;
+  color: #a2b3c8;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.navigation button.nav-item.active {
+  background: #27435c;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.navigation button.nav-item:hover:not(.active) {
+  background: #213750;
+  color: #ffffff;
+}
+
+.navigation button.nav-item:focus-visible {
+  outline: 2px solid #23b58c;
+  outline-offset: 2px;
+}
