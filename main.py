@@ -19,7 +19,8 @@ from schemas.pedido import (
     ProdutoResponse,
     PedidoResponse,
     EntradaUsuario,
-    RespostaAgente
+    RespostaAgente,
+    EstoqueUpdate
 )
 
 from rag.loader import carregar_base_conhecimento
@@ -166,7 +167,45 @@ def criar_produto(
             detail=str(erro)
         ) from erro
 
+# ============================================================
+# ATUALIZACAO MANUAL DO ESTOQUE
+# ============================================================
 
+@app.patch(
+    "/produtos/{produto_id}/estoque",
+    response_model=ProdutoResponse
+)
+def atualizar_estoque_produto(
+    produto_id: int,
+    entrada: EstoqueUpdate,
+    db: Session = Depends(get_db)
+):
+    if produto_id < 1:
+        raise HTTPException(
+            status_code=422,
+            detail="Identificador do produto invalido."
+        )
+
+    try:
+        return crud.atualizar_estoque(
+            db=db,
+            produto_id=produto_id,
+            nova_quantidade=entrada.quantidade
+        )
+
+    except ValueError as erro:
+        mensagem = str(erro)
+
+        codigo = (
+            404
+            if mensagem == "Produto não encontrado."
+            else 422
+        )
+
+        raise HTTPException(
+            status_code=codigo,
+            detail=mensagem
+        ) from erro
 # ============================================================
 # ROTAS DE PEDIDOS LEGADOS
 # ============================================================

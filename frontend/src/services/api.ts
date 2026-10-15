@@ -126,3 +126,75 @@ export async function listarCompras(
 
   return (await resposta.json()) as CompraHistorico[]
 }
+
+
+
+export interface NovoProduto {
+  nome: string
+  preco: number
+  quantidade: number
+  descricao: string
+  categoria: string
+}
+
+function mensagemErroApi(dados: unknown): string {
+  if (typeof dados === 'object' && dados !== null && 'detail' in dados) {
+    const detalhe = dados.detail
+
+    if (typeof detalhe === 'string') {
+      return detalhe
+    }
+  }
+
+  return 'Não foi possível concluir a operação.'
+}
+
+export async function cadastrarProduto(
+  produto: NovoProduto
+): Promise<Produto> {
+  const resposta = await fetch('/api/produtos', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(produto),
+  })
+
+  const dados: unknown = await resposta.json()
+
+  if (!resposta.ok) {
+    throw new ApiError(
+      mensagemErroApi(dados),
+      resposta.status
+    )
+  }
+
+  return dados as Produto
+}
+
+export async function atualizarEstoque(
+  produtoId: number,
+  quantidade: number
+): Promise<Produto> {
+  const resposta = await fetch(
+    `/api/produtos/${produtoId}/estoque`,
+    {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ quantidade }),
+    }
+  )
+
+  const dados: unknown = await resposta.json()
+
+  if (!resposta.ok) {
+    throw new ApiError(
+      mensagemErroApi(dados),
+      resposta.status
+    )
+  }
+
+  return dados as Produto
+}

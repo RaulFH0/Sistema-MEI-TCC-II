@@ -1,9 +1,10 @@
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { listarProdutos, type Produto } from './services/api'
 import AtendimentoIA from './components/AtendimentoIA'
 import HistoricoCompras from './components/HistoricoCompras'
+import GerenciarProdutos from './components/GerenciarProdutos'
 
 import './App.css'
 
@@ -16,21 +17,20 @@ const moeda = new Intl.NumberFormat('pt-BR', {
 
 function App() {
   // ============================================================
-  // ESTADOS
+  // ESTADOS DA APLICACAO
   // ============================================================
 
   const [pagina, setPagina] = useState<Pagina>('estoque')
-
   const [produtos, setProdutos] = useState<Produto[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
   const [busca, setBusca] = useState('')
 
   // ============================================================
-  // CARREGAMENTO DOS PRODUTOS
+  // CONSULTA DE PRODUTOS
   // ============================================================
 
-  async function carregarProdutos() {
+  const carregarProdutos = useCallback(async () => {
     setCarregando(true)
     setErro('')
 
@@ -46,18 +46,14 @@ function App() {
     } finally {
       setCarregando(false)
     }
-  }
-
-  useEffect(() => {
-    void carregarProdutos()
   }, [])
 
-  // Atualiza o estoque ao voltar para o painel.
+  // Atualiza os dados quando o usuario abre o estoque.
   useEffect(() => {
     if (pagina === 'estoque') {
       void carregarProdutos()
     }
-  }, [pagina])
+  }, [pagina, carregarProdutos])
 
   // ============================================================
   // FILTROS E INDICADORES
@@ -98,7 +94,10 @@ function App() {
           </div>
         </div>
 
-        <nav className="navigation" aria-label="Menu principal">
+        <nav
+          className="navigation"
+          aria-label="Menu principal"
+        >
           <button
             type="button"
             className={`nav-item ${
@@ -151,14 +150,14 @@ function App() {
           <AtendimentoIA />
         ) : (
           <>
+            {/* CABECALHO */}
             <header className="page-header">
               <div>
                 <p className="eyebrow">VISÃO GERAL</p>
-
                 <h1>Produtos e estoque</h1>
-
                 <p className="subtitle">
-                  Acompanhe os produtos cadastrados no seu negócio.
+                  Acompanhe e gerencie os produtos
+                  cadastrados no seu negócio.
                 </p>
               </div>
 
@@ -172,7 +171,11 @@ function App() {
               </button>
             </header>
 
-            <section className="stats" aria-label="Indicadores">
+            {/* INDICADORES */}
+            <section
+              className="stats"
+              aria-label="Indicadores de estoque"
+            >
               <article className="stat-card">
                 <span>Produtos cadastrados</span>
                 <strong>{produtos.length}</strong>
@@ -192,12 +195,14 @@ function App() {
               </article>
             </section>
 
+            {/* INVENTARIO */}
             <section className="content-card">
               <div className="section-header">
                 <div>
                   <h2>Inventário</h2>
                   <p>
-                    Consulta de preços e quantidades disponíveis.
+                    Consulta de preços e quantidades
+                    disponíveis.
                   </p>
                 </div>
 
@@ -206,16 +211,21 @@ function App() {
                   placeholder="Pesquisar produto..."
                   aria-label="Pesquisar produto"
                   value={busca}
-                  onChange={(evento) => setBusca(evento.target.value)}
+                  onChange={(evento) =>
+                    setBusca(evento.target.value)
+                  }
                 />
               </div>
 
               {erro && (
-                <div className="error-message" role="alert">
+                <div
+                  className="error-message"
+                  role="alert"
+                >
                   {erro}
                   <p>
-                    Verifique se o FastAPI está em execução
-                    na porta 8000.
+                    Verifique se o FastAPI está
+                    em execução na porta 8000.
                   </p>
                 </div>
               )}
@@ -251,7 +261,8 @@ function App() {
                           </td>
 
                           <td>
-                            {produto.categoria || 'Não informada'}
+                            {produto.categoria ||
+                              'Não informada'}
                           </td>
 
                           <td>
@@ -280,6 +291,12 @@ function App() {
                 </div>
               )}
             </section>
+
+            {/* CADASTRO E ATUALIZACAO DE ESTOQUE */}
+            <GerenciarProdutos
+              produtos={produtos}
+              aoAtualizar={carregarProdutos}
+            />
           </>
         )}
       </main>

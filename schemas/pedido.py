@@ -229,3 +229,16 @@ class CompraHistoricoResponse(BaseModel):
     status: str
     criado_em: datetime
     itens: list[ItemCompraResponse]
+
+
+# ============================================================
+# ATUALIZACAO DE ESTOQUE
+# ============================================================
+
+class EstoqueUpdate(BaseModel):
+    quantidade: int = Field(
+        ...,
+        strict=True,
+        ge=0,
+        description="Nova quantidade total em estoque"
+    )
