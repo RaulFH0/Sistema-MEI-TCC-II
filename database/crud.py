@@ -1,15 +1,21 @@
+
 import hashlib
 import json
-from sqlalchemy.exc import IntegrityError
-from database.models import Compra, ItemCompra
 
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 
 from sqlalchemy import update, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from database.models import Produto, Pedido, LogSistema
+from database.models import (
+    Produto,
+    Pedido,
+    LogSistema,
+    Compra,
+    ItemCompra,
+)
 
 
 # ============================================================
@@ -21,7 +27,9 @@ LIMITE_POR_PRODUTO = 50
 
 def _validar_quantidade(quantidade):
     if type(quantidade) is not int:
-        raise ValueError("Quantidade deve ser um número inteiro.")
+        raise ValueError(
+            "Quantidade deve ser um número inteiro."
+        )
 
     if not 1 <= quantidade <= LIMITE_POR_PRODUTO:
         raise ValueError(
@@ -33,7 +41,9 @@ def _validar_quantidade(quantidade):
 
 def _validar_nome(nome, campo="Nome"):
     if not isinstance(nome, str) or not nome.strip():
-        raise ValueError(f"{campo} é obrigatório.")
+        raise ValueError(
+            f"{campo} é obrigatório."
+        )
 
     return nome.strip()
 
@@ -42,10 +52,14 @@ def _valor_decimal(valor):
     try:
         numero = Decimal(str(valor))
     except (InvalidOperation, ValueError, TypeError):
-        raise ValueError("Valor monetário inválido.")
+        raise ValueError(
+            "Valor monetário inválido."
+        )
 
     if not numero.is_finite():
-        raise ValueError("Valor monetário inválido.")
+        raise ValueError(
+            "Valor monetário inválido."
+        )
 
     return numero.quantize(
         Decimal("0.01"),
@@ -65,19 +79,29 @@ def criar_produto(
     descricao: str = "",
     categoria: str = ""
 ):
-    nome = _validar_nome(nome, "Nome do produto")
+    nome = _validar_nome(
+        nome,
+        "Nome do produto"
+    )
 
     if type(quantidade) is not int or quantidade < 0:
-        raise ValueError("Estoque inicial inválido.")
+        raise ValueError(
+            "Estoque inicial inválido."
+        )
 
     preco_validado = _valor_decimal(preco)
 
     if preco_validado <= 0:
-        raise ValueError("Preço deve ser maior que zero.")
+        raise ValueError(
+            "Preço deve ser maior que zero."
+        )
 
     existente = (
         db.query(Produto)
-        .filter(func.lower(func.trim(Produto.nome)) == nome.casefold())
+        .filter(
+            func.lower(func.trim(Produto.nome))
+            == nome.casefold()
+        )
         .first()
     )
 
@@ -98,6 +122,7 @@ def criar_produto(
         db.add(produto)
         db.commit()
         db.refresh(produto)
+
         return produto
 
     except Exception:
@@ -105,8 +130,14 @@ def criar_produto(
         raise
 
 
-def buscar_produto_por_nome(db: Session, nome: str):
-    nome = _validar_nome(nome, "Nome do produto")
+def buscar_produto_por_nome(
+    db: Session,
+    nome: str
+):
+    nome = _validar_nome(
+        nome,
+        "Nome do produto"
+    )
 
     return (
         db.query(Produto)
@@ -116,7 +147,11 @@ def buscar_produto_por_nome(db: Session, nome: str):
 
 
 def listar_produtos(db: Session):
-    return db.query(Produto).order_by(Produto.id).all()
+    return (
+        db.query(Produto)
+        .order_by(Produto.id)
+        .all()
+    )
 
 
 def atualizar_estoque(
@@ -124,14 +159,24 @@ def atualizar_estoque(
     produto_id: int,
     nova_quantidade: int
 ):
-    if type(nova_quantidade) is not int or nova_quantidade < 0:
-        raise ValueError("Estoque não pode ser negativo.")
+    if (
+        type(nova_quantidade) is not int
+        or nova_quantidade < 0
+    ):
+        raise ValueError(
+            "Estoque não pode ser negativo."
+        )
 
     try:
-        produto = db.get(Produto, produto_id)
+        produto = db.get(
+            Produto,
+            produto_id
+        )
 
         if produto is None:
-            raise ValueError("Produto não encontrado.")
+            raise ValueError(
+                "Produto não encontrado."
+            )
 
         produto.quantidade = nova_quantidade
         produto.atualizado_em = datetime.now()
@@ -147,7 +192,7 @@ def atualizar_estoque(
 
 
 # ============================================================
-# CRUD DE PEDIDOS
+# CRUD DE PEDIDOS - MODELO ANTERIOR
 # ============================================================
 
 def registrar_pedido_seguro(
@@ -158,9 +203,11 @@ def registrar_pedido_seguro(
     """
     Registra um ou vários produtos de maneira atômica.
 
-    Cada item é salvo como um registro na tabela atual
-    de pedidos. Não há ainda um identificador único
-    compartilhado entre todos os itens da compra.
+    Cada item é salvo como um registro na tabela
+    anterior de pedidos.
+
+    Não há um identificador único compartilhado
+    entre todos os itens dessa compra.
     """
 
     cliente_nome = _validar_nome(
@@ -169,7 +216,9 @@ def registrar_pedido_seguro(
     )
 
     if not isinstance(itens, list) or not itens:
-        raise ValueError("Pedido sem produtos.")
+        raise ValueError(
+            "Pedido sem produtos."
+        )
 
     quantidades = {}
 
@@ -179,7 +228,9 @@ def registrar_pedido_seguro(
 
     for item in itens:
         if not isinstance(item, dict):
-            raise ValueError("Formato de item inválido.")
+            raise ValueError(
+                "Formato de item inválido."
+            )
 
         nome = _validar_nome(
             item.get("produto_nome"),
@@ -258,7 +309,9 @@ def registrar_pedido_seguro(
                     Produto.quantidade >= quantidade
                 )
                 .values(
-                    quantidade=Produto.quantidade - quantidade,
+                    quantidade=(
+                        Produto.quantidade - quantidade
+                    ),
                     atualizado_em=datetime.now()
                 )
                 .execution_options(
@@ -273,7 +326,9 @@ def registrar_pedido_seguro(
 
             subtotal = (
                 preco * Decimal(quantidade)
-            ).quantize(Decimal("0.01"))
+            ).quantize(
+                Decimal("0.01")
+            )
 
             pedido = Pedido(
                 cliente_nome=cliente_nome,
@@ -334,12 +389,20 @@ def criar_pedido(
     independentemente dos valores informados pelo agente.
     """
 
-    produto = db.get(Produto, produto_id)
+    produto = db.get(
+        Produto,
+        produto_id
+    )
 
     if produto is None:
-        raise ValueError("Produto não encontrado.")
+        raise ValueError(
+            "Produto não encontrado."
+        )
 
-    if produto.nome.strip().casefold() != produto_nome.strip().casefold():
+    if (
+        produto.nome.strip().casefold()
+        != produto_nome.strip().casefold()
+    ):
         raise ValueError(
             "O nome informado não corresponde ao produto."
         )
@@ -357,11 +420,18 @@ def criar_pedido(
 
     pedido_id = resultado["itens"][0]["pedido_id"]
 
-    return db.get(Pedido, pedido_id)
+    return db.get(
+        Pedido,
+        pedido_id
+    )
 
 
 def listar_pedidos(db: Session):
-    return db.query(Pedido).order_by(Pedido.id).all()
+    return (
+        db.query(Pedido)
+        .order_by(Pedido.id)
+        .all()
+    )
 
 
 # ============================================================
@@ -390,6 +460,7 @@ def registrar_log(
         db.add(log)
         db.commit()
         db.refresh(log)
+
         return log
 
     except Exception:
@@ -406,66 +477,131 @@ def registrar_compra_segura(
     cliente_nome: str,
     itens: list[dict],
     chave_idempotencia: str,
-    mensagem_original: str | None = None
+    mensagem_original: str | None = None,
+    total_aprovado_centavos: int | None = None,
+    identificar_por_id: bool = False
 ):
+    """
+    Registra uma compra V2 de maneira transacional.
+
+    O total_aprovado_centavos é opcional para preservar
+    a compatibilidade com o atendimento IA existente.
+
+    Quando informado pelo portal do cliente, o valor
+    é comparado com o total calculado pelo banco.
+
+    Se o valor tiver mudado, a compra é cancelada
+    e a transação é revertida.
+    """
+
     cliente = _validar_nome(
-        cliente_nome, "Nome do cliente"
+        cliente_nome,
+        "Nome do cliente"
     )
 
     chave = _validar_nome(
-        chave_idempotencia, "Chave de idempotencia"
+        chave_idempotencia,
+        "Chave de idempotencia"
     )
 
     if len(chave) > 128:
-        raise ValueError("Chave de idempotencia muito longa.")
+        raise ValueError(
+            "Chave de idempotencia muito longa."
+        )
+
+    # --------------------------------------------------------
+    # VALIDAR O TOTAL APROVADO PELO CLIENTE
+    # --------------------------------------------------------
+
+    if total_aprovado_centavos is not None:
+        if (
+            type(total_aprovado_centavos) is not int
+            or total_aprovado_centavos <= 0
+        ):
+            raise ValueError(
+                "Total aprovado invalido."
+            )
+
+    # --------------------------------------------------------
+    # VALIDAR A MENSAGEM ORIGINAL
+    # --------------------------------------------------------
 
     hash_mensagem = None
 
     if mensagem_original is not None:
         if not isinstance(mensagem_original, str):
-            raise ValueError("Mensagem original invalida.")
+            raise ValueError(
+                "Mensagem original invalida."
+            )
 
         if not mensagem_original.strip():
-            raise ValueError("Mensagem original vazia.")
+            raise ValueError(
+                "Mensagem original vazia."
+            )
 
         hash_mensagem = hashlib.sha256(
             mensagem_original.encode("utf-8")
         ).hexdigest()
 
     if not isinstance(itens, list) or not itens:
-        raise ValueError("Compra sem produtos.")
+        raise ValueError(
+            "Compra sem produtos."
+        )
 
-    # 1. Normalizar e consolidar itens
+    # --------------------------------------------------------
+    # 1. NORMALIZAR E CONSOLIDAR ITENS
+    # --------------------------------------------------------
+
+    
     normalizados = {}
 
     for item in itens:
         if not isinstance(item, dict):
             raise ValueError("Item invalido.")
 
-        nome = _validar_nome(
-            item.get("produto_nome"), "Produto"
-        )
-        qtd = _validar_quantidade(
+        quantidade = _validar_quantidade(
             item.get("quantidade")
         )
 
-        nome_normalizado = nome.casefold()
+        if identificar_por_id:
+            produto_id = item.get("produto_id")
 
-        normalizados[nome_normalizado] = (
-            normalizados.get(nome_normalizado, 0) + qtd
+            if type(produto_id) is not int or produto_id < 1:
+                raise ValueError("ID do produto invalido.")
+
+            chave_produto = produto_id
+        else:
+            nome = _validar_nome(
+                item.get("produto_nome"),
+                "Produto"
+            )
+            chave_produto = nome.casefold()
+
+        normalizados[chave_produto] = (
+            normalizados.get(chave_produto, 0)
+            + quantidade
         )
 
-    for nome, qtd in normalizados.items():
-        if qtd > LIMITE_POR_PRODUTO:
+    for identificador, quantidade in normalizados.items():
+        if quantidade > LIMITE_POR_PRODUTO:
             raise ValueError(
-                f"Limite de 50 unidades excedido: {nome}"
+                f"Limite de 50 unidades excedido: {identificador}"
             )
 
-    # 2. Hash canonico do conteudo da compra
+    # --------------------------------------------------------
+    # 2. GERAR HASH CANONICO DA COMPRA
+    # --------------------------------------------------------
+
     assinatura = {
-        "cliente": cliente.casefold(),
-        "itens": sorted(normalizados.items())
-    }
+    "cliente": cliente.casefold(),
+    "itens": sorted(normalizados.items())
+}
+
+    if identificar_por_id:
+        assinatura["identificacao"] = "produto_id"
+        assinatura["total_aprovado_centavos"] = (
+            total_aprovado_centavos
+        )
 
     conteudo = json.dumps(
         assinatura,
@@ -478,6 +614,10 @@ def registrar_compra_segura(
         conteudo.encode("utf-8")
     ).hexdigest()
 
+    # --------------------------------------------------------
+    # APRESENTAR RESULTADO
+    # --------------------------------------------------------
+
     def apresentar(compra, repetida=False):
         return {
             "pedido_confirmado": True,
@@ -487,28 +627,32 @@ def registrar_compra_segura(
                 {
                     "produto_nome": item.produto_nome,
                     "quantidade": item.quantidade,
-                    "preco_unitario": item.preco_unitario / 100,
+                    "preco_unitario": (
+                        item.preco_unitario / 100
+                    ),
                     "subtotal": item.subtotal / 100
                 }
                 for item in sorted(
-                    compra.itens, key=lambda x: x.id
+                    compra.itens,
+                    key=lambda x: x.id
                 )
             ],
             "valor_total": compra.valor_total / 100,
             "requisicao_repetida": repetida
         }
 
+    # --------------------------------------------------------
+    # VERIFICAR COMPRA EXISTENTE
+    # --------------------------------------------------------
+
     def verificar_existente(compra):
-    # Verificar se os dados estruturados sao iguais
         if compra.hash_solicitacao != hash_solicitacao:
             raise ValueError(
                 "Chave de idempotencia ja utilizada "
                 "com dados diferentes."
             )
 
-        # V2.2: verificar a mensagem original
         if compra.hash_mensagem is not None:
-
             if hash_mensagem is None:
                 raise ValueError(
                     "Mensagem original obrigatoria "
@@ -521,14 +665,33 @@ def registrar_compra_segura(
                     "com mensagem diferente."
                 )
 
-        # Compras anteriores a V2.2 continuam usando
-        # a verificacao do conteudo estruturado.
-        return apresentar(compra, repetida=True)
+        # Se um total aprovado foi fornecido,
+        # ele também deve corresponder à compra
+        # registrada anteriormente.
+        if (
+            total_aprovado_centavos is not None
+            and compra.valor_total
+            != total_aprovado_centavos
+        ):
+            raise ValueError(
+                "Chave de idempotencia ja utilizada "
+                "com valor aprovado diferente."
+            )
 
-    # 3. Verificar compra previamente confirmada
+        return apresentar(
+            compra,
+            repetida=True
+        )
+
+    # --------------------------------------------------------
+    # 3. CONSULTAR COMPRA EXISTENTE
+    # --------------------------------------------------------
+
     existente = (
         db.query(Compra)
-        .filter(Compra.chave_idempotencia == chave)
+        .filter(
+            Compra.chave_idempotencia == chave
+        )
         .first()
     )
 
@@ -536,7 +699,10 @@ def registrar_compra_segura(
         return verificar_existente(existente)
 
     try:
-        # 4. Reservar a chave antes de baixar estoque
+        # ----------------------------------------------------
+        # 4. RESERVAR CHAVE ANTES DE BAIXAR ESTOQUE
+        # ----------------------------------------------------
+
         compra = Compra(
             cliente_nome=cliente,
             chave_idempotencia=chave,
@@ -544,43 +710,73 @@ def registrar_compra_segura(
             hash_mensagem=hash_mensagem,
             valor_total=0,
             status="confirmado"
-)
+        )
 
         db.add(compra)
         db.flush()
 
         total_centavos = 0
 
-        # 5. Consultar produtos e atualizar estoque
-        for nome, qtd in sorted(normalizados.items()):
-            produtos = (
-                db.query(Produto)
-                .filter(
-                    func.lower(func.trim(Produto.nome))
-                    == nome
-                )
-                .all()
-            )
+        # ----------------------------------------------------
+        # 5. CONSULTAR PRODUTOS E ATUALIZAR ESTOQUE
+        # ----------------------------------------------------
 
-            if not produtos:
-                raise ValueError(
-                    f"Produto '{nome}' nao cadastrado."
+        
+        for identificador, qtd in sorted(normalizados.items()):
+
+            # Portal do cliente: identificar pelo ID.
+            if identificar_por_id:
+                produto = db.get(Produto, identificador)
+
+                if produto is None:
+                    raise ValueError(
+                        f"Produto ID {identificador} nao cadastrado."
+                    )
+
+            # Atendimento IA: identificar pelo nome.
+            else:
+                produtos = (
+                    db.query(Produto)
+                    .filter(
+                        func.lower(func.trim(Produto.nome))
+                        == identificador
+                    )
+                    .all()
                 )
 
-            if len(produtos) > 1:
-                raise ValueError(
-                    f"Produto '{nome}' duplicado."
-                )
+                if not produtos:
+                    raise ValueError(
+                        f"Produto '{identificador}' nao cadastrado."
+                    )
 
-            produto = produtos[0]
+                if len(produtos) > 1:
+                    raise ValueError(
+                        f"Produto '{identificador}' duplicado."
+                    )
+
+                produto = produtos[0]
+
+            # A partir daqui, os dois caminhos utilizam
+            # a mesma variavel 'produto'.
             preco = _valor_decimal(produto.preco)
 
+
             if preco <= 0:
-                raise ValueError("Preco invalido.")
+                raise ValueError(
+                    "Preco invalido."
+                )
 
-            preco_centavos = int(preco * 100)
-            subtotal = preco_centavos * qtd
+            preco_centavos = int(
+                preco * 100
+            )
 
+            subtotal = (
+                preco_centavos * qtd
+            )
+
+            # Atualização condicional de estoque.
+            # Se não houver quantidade suficiente,
+            # a operação é rejeitada.
             atualizacao = db.execute(
                 update(Produto)
                 .where(
@@ -588,7 +784,9 @@ def registrar_compra_segura(
                     Produto.quantidade >= qtd
                 )
                 .values(
-                    quantidade=Produto.quantidade - qtd,
+                    quantidade=(
+                        Produto.quantidade - qtd
+                    ),
                     atualizado_em=datetime.now()
                 )
                 .execution_options(
@@ -601,23 +799,45 @@ def registrar_compra_segura(
                     f"Estoque insuficiente: {produto.nome}"
                 )
 
-            db.add(ItemCompra(
-                compra_id=compra.id,
-                produto_id=produto.id,
-                produto_nome=produto.nome,
-                quantidade=qtd,
-                preco_unitario=preco_centavos,
-                subtotal=subtotal
-            ))
+            db.add(
+                ItemCompra(
+                    compra_id=compra.id,
+                    produto_id=produto.id,
+                    produto_nome=produto.nome,
+                    quantidade=qtd,
+                    preco_unitario=preco_centavos,
+                    subtotal=subtotal
+                )
+            )
 
             total_centavos += subtotal
+
+        # ----------------------------------------------------
+        # 6. CONFERIR TOTAL APROVADO PELO CLIENTE
+        # ----------------------------------------------------
+
+        if (
+            total_aprovado_centavos is not None
+            and total_centavos != total_aprovado_centavos
+        ):
+            raise ValueError(
+                "O valor do pedido mudou desde o orcamento. "
+                "Solicite um novo orcamento antes de confirmar."
+            )
+
+        # ----------------------------------------------------
+        # 7. FINALIZAR A COMPRA
+        # ----------------------------------------------------
 
         compra.valor_total = total_centavos
 
         db.flush()
-        resultado = apresentar(compra)
 
-        # Uma transacao para compra, itens e estoque
+        resultado = apresentar(
+            compra
+        )
+
+        # Compra, itens e estoque na mesma transação.
         db.commit()
 
         return resultado
@@ -625,10 +845,12 @@ def registrar_compra_segura(
     except IntegrityError:
         db.rollback()
 
-        # Outra chamada pode ter gravado a mesma chave.
+        # Outra chamada pode ter registrado a mesma chave.
         existente = (
             db.query(Compra)
-            .filter(Compra.chave_idempotencia == chave)
+            .filter(
+                Compra.chave_idempotencia == chave
+            )
             .first()
         )
 
@@ -640,6 +862,11 @@ def registrar_compra_segura(
     except Exception:
         db.rollback()
         raise
+
+
+# ============================================================
+# CONSULTAR COMPRA EXISTENTE ANTES DA IA
+# ============================================================
 
 def consultar_compra_por_mensagem(
     db: Session,
@@ -672,7 +899,9 @@ def consultar_compra_por_mensagem(
         not isinstance(mensagem_original, str)
         or not mensagem_original.strip()
     ):
-        raise ValueError("Mensagem original invalida.")
+        raise ValueError(
+            "Mensagem original invalida."
+        )
 
     hash_atual = hashlib.sha256(
         mensagem_original.encode("utf-8")
@@ -680,15 +909,17 @@ def consultar_compra_por_mensagem(
 
     compra = (
         db.query(Compra)
-        .filter(Compra.chave_idempotencia == chave)
+        .filter(
+            Compra.chave_idempotencia == chave
+        )
         .first()
     )
 
     if compra is None:
         return None
 
-    # Compra antiga: precisa passar pela triagem
-    # para validar o conteudo estruturado.
+    # Compras anteriores à V2.2 precisam passar
+    # pela validação estruturada completa.
     if compra.hash_mensagem is None:
         return None
 
@@ -706,14 +937,20 @@ def consultar_compra_por_mensagem(
             {
                 "produto_nome": item.produto_nome,
                 "quantidade": item.quantidade,
-                "preco_unitario": item.preco_unitario / 100,
-                "subtotal": item.subtotal / 100
+                "preco_unitario": (
+                    item.preco_unitario / 100
+                ),
+                "subtotal": (
+                    item.subtotal / 100
+                )
             }
             for item in sorted(
                 compra.itens,
                 key=lambda item: item.id
             )
         ],
-        "valor_total": compra.valor_total / 100,
+        "valor_total": (
+            compra.valor_total / 100
+        ),
         "requisicao_repetida": True
     }

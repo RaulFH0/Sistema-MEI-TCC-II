@@ -5,7 +5,7 @@ import logging
 from fastapi import FastAPI, Depends, HTTPException, Header
 from sqlalchemy.orm import Session
 from typing import List
-
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import selectinload
 from database.models import Compra
 from schemas.pedido import CompraHistoricoResponse
@@ -14,6 +14,8 @@ from database.models import init_db, get_db
 from database import crud
 from contextlib import asynccontextmanager
 
+from decimal import Decimal, ROUND_HALF_UP
+
 from schemas.pedido import (
     ProdutoCreate,
     ProdutoResponse,
@@ -21,7 +23,10 @@ from schemas.pedido import (
     EntradaUsuario,
     RespostaAgente,
     EstoqueUpdate,
-    EstoqueMinimoUpdate
+    EstoqueMinimoUpdate,
+    OrcamentoEntrada,
+    OrcamentoResposta,
+    ConfirmacaoLojaEntrada
 )
 
 from rag.loader import carregar_base_conhecimento
@@ -313,6 +318,208 @@ def listar_compras_v2(
         }
         for compra in compras
     ]
+
+
+# ============================================================
+# PORTAL DO CLIENTE - ORCAMENTO SEM VENDA
+# ============================================================
+
+@app.post(
+    "/loja/orcamento",
+    response_model=OrcamentoResposta
+)
+def gerar_orcamento(
+    entrada: OrcamentoEntrada,
+    db: Session = Depends(get_db)
+):
+    cliente = entrada.cliente_nome.strip()
+
+    if not cliente:
+        raise HTTPException(
+            status_code=422,
+            detail="Nome do cliente obrigatorio."
+        )
+
+    quantidades: dict[int, int] = {}
+
+    for item in entrada.itens:
+        quantidades[item.produto_id] = (
+            quantidades.get(item.produto_id, 0)
+            + item.quantidade
+        )
+
+    if any(qtd > 50 for qtd in quantidades.values()):
+        raise HTTPException(
+            status_code=422,
+            detail="Limite de 50 unidades por produto."
+        )
+
+    itens_resposta = []
+    total_centavos = 0
+
+    for produto_id, quantidade in sorted(quantidades.items()):
+        produto = db.get(Produto, produto_id)
+
+        if produto is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Produto {produto_id} nao encontrado."
+            )
+
+        if produto.quantidade < quantidade:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Estoque insuficiente para {produto.nome}. "
+                    f"Disponivel: {produto.quantidade}."
+                )
+            )
+
+        preco = Decimal(str(produto.preco))
+
+        if not preco.is_finite() or preco <= 0:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Preco invalido: {produto.nome}."
+            )
+
+        preco_centavos = int(
+            (preco * 100).quantize(
+                Decimal("1"),
+                rounding=ROUND_HALF_UP
+            )
+        )
+
+        subtotal = preco_centavos * quantidade
+        total_centavos += subtotal
+
+        itens_resposta.append({
+            "produto_id": produto.id,
+            "produto_nome": produto.nome,
+            "quantidade": quantidade,
+            "preco_unitario_centavos": preco_centavos,
+            "subtotal_centavos": subtotal
+        })
+
+    return {
+        "cliente_nome": cliente,
+        "itens": itens_resposta,
+        "valor_total_centavos": total_centavos,
+        "mensagem": (
+            "Orcamento calculado. "
+            "Nenhuma compra foi registrada. "
+            "Precos e estoque sujeitos a verificacao "
+            "no momento da confirmacao."
+        )
+    }
+
+
+# ============================================================
+# PORTAL DO CLIENTE - CONFIRMACAO DE COMPRA
+# ============================================================
+
+@app.post("/loja/confirmar")
+def confirmar_compra_loja(
+    entrada: ConfirmacaoLojaEntrada,
+    idempotency_key: str = Header(
+        ...,
+        alias="Idempotency-Key",
+        min_length=1,
+        max_length=128
+    ),
+    db: Session = Depends(get_db)
+):
+    # Consultar os produtos por ID e consolidar itens.
+    # O registro definitivo validara novamente cada ID
+    # dentro da transacao.
+    quantidades: dict[int, int] = {}
+
+    for item in entrada.itens:
+        quantidades[item.produto_id] = (
+            quantidades.get(item.produto_id, 0)
+            + item.quantidade
+        )
+
+    if any(qtd > 50 for qtd in quantidades.values()):
+        raise HTTPException(
+            status_code=422,
+            detail="Limite de 50 unidades por produto."
+        )
+
+    itens_compra = [
+        {
+            "produto_id": produto_id,
+            "quantidade": quantidade
+        }
+        for produto_id, quantidade in sorted(quantidades.items())
+    ]
+
+    try:
+        resultado = crud.registrar_compra_segura(
+            db=db,
+            cliente_nome=entrada.cliente_nome,
+            itens=itens_compra,
+            chave_idempotencia=idempotency_key,
+            total_aprovado_centavos=entrada.valor_total_centavos,
+            identificar_por_id=True
+        )
+
+        return {
+            "sucesso": True,
+            "acao_executada": (
+                "pedido_repetido"
+                if resultado["requisicao_repetida"]
+                else "pedido_confirmado"
+            ),
+            "pedido": resultado
+        }
+
+    except ValueError as erro:
+        mensagem = str(erro)
+
+        if (
+            "Chave de idempotencia" in mensagem
+            or "chave de idempotencia" in mensagem
+        ):
+            codigo = 409
+        elif (
+            "Estoque insuficiente" in mensagem
+            or "valor do pedido mudou" in mensagem
+        ):
+            codigo = 409
+        elif "nao cadastrado" in mensagem:
+            codigo = 404
+        else:
+            codigo = 422
+
+        raise HTTPException(
+            status_code=codigo,
+            detail=mensagem
+        ) from erro
+
+    except IntegrityError as erro:
+        logger.exception(
+            "Conflito de integridade na confirmacao da loja"
+        )
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Nao foi possivel confirmar a compra. "
+                "Verifique o pedido antes de reenviar."
+            )
+        ) from erro
+
+    except Exception as erro:
+        logger.exception(
+            "Falha interna na confirmacao da loja"
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Resultado da confirmacao incerto. "
+                "Nao crie outra chave para repetir a compra."
+            )
+        ) from erro
 
 
 

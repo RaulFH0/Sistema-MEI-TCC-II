@@ -229,3 +229,130 @@ export async function configurarEstoqueMinimo(
 
   return dados as Produto
 }
+
+
+export interface ItemOrcamento {
+  produto_id: number
+  produto_nome: string
+  quantidade: number
+  preco_unitario_centavos: number
+  subtotal_centavos: number
+}
+
+export interface OrcamentoLoja {
+  cliente_nome: string
+  itens: ItemOrcamento[]
+  valor_total_centavos: number
+  mensagem: string
+}
+
+export async function gerarOrcamentoLoja(
+  clienteNome: string,
+  itens: Array<{
+    produto_id: number
+    quantidade: number
+  }>
+): Promise<OrcamentoLoja> {
+  const resposta = await fetch('/api/loja/orcamento', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      cliente_nome: clienteNome,
+      itens,
+    }),
+  })
+
+  const dados: unknown = await resposta.json()
+
+  if (!resposta.ok) {
+    let mensagem = 'Não foi possível calcular o orçamento.'
+
+    if (
+      typeof dados === 'object' &&
+      dados !== null &&
+      'detail' in dados &&
+      typeof dados.detail === 'string'
+    ) {
+      mensagem = dados.detail
+    }
+
+    throw new ApiError(mensagem, resposta.status)
+  }
+
+  return dados as OrcamentoLoja
+}
+
+
+export interface PedidoConfirmadoLoja {
+  pedido_confirmado: boolean
+  compra_id: number
+  cliente_nome: string
+  itens: Array<{
+    produto_nome: string
+    quantidade: number
+    preco_unitario: number
+    subtotal: number
+  }>
+  valor_total: number
+  requisicao_repetida: boolean
+}
+
+export interface RespostaConfirmacaoLoja {
+  sucesso: boolean
+  acao_executada: string
+  pedido: PedidoConfirmadoLoja
+}
+
+export interface SolicitacaoConfirmacaoLoja {
+  cliente_nome: string
+  itens: Array<{
+    produto_id: number
+    quantidade: number
+  }>
+  valor_total_centavos: number
+}
+
+export async function confirmarPedidoLoja(
+  solicitacao: SolicitacaoConfirmacaoLoja,
+  chaveIdempotencia: string
+): Promise<RespostaConfirmacaoLoja> {
+  const resposta = await fetch('/api/loja/confirmar', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Idempotency-Key': chaveIdempotencia,
+    },
+    body: JSON.stringify(solicitacao),
+  })
+
+  let dados: unknown
+
+  try {
+    dados = await resposta.json()
+  } catch {
+    throw new ApiError(
+      'Não foi possível interpretar a resposta. ' +
+      'Não inicie outro pedido antes de verificar a tentativa.',
+      resposta.status
+    )
+  }
+
+  if (!resposta.ok) {
+    let mensagem = 'Não foi possível confirmar o pedido.'
+
+    if (
+      typeof dados === 'object' &&
+      dados !== null &&
+      'detail' in dados &&
+      typeof dados.detail === 'string'
+    ) {
+      mensagem = dados.detail
+    }
+
+    throw new ApiError(mensagem, resposta.status)
+  }
+
+  return dados as RespostaConfirmacaoLoja
+}

@@ -256,3 +256,54 @@ class EstoqueMinimoUpdate(BaseModel):
         ge=0,
         description="Quantidade minima desejada em estoque"
     )
+
+
+
+# ============================================================
+# PORTAL DO CLIENTE - ORCAMENTO
+# ============================================================
+
+class ItemOrcamentoEntrada(BaseModel):
+    produto_id: int = Field(..., strict=True, ge=1)
+    quantidade: int = Field(..., strict=True, ge=1, le=50)
+
+
+class OrcamentoEntrada(BaseModel):
+    cliente_nome: str = Field(
+        ...,
+        min_length=1,
+        max_length=120
+    )
+    itens: list[ItemOrcamentoEntrada] = Field(
+        ...,
+        min_length=1,
+        max_length=50
+    )
+
+
+class ItemOrcamentoResposta(BaseModel):
+    produto_id: int
+    produto_nome: str
+    quantidade: int
+    preco_unitario_centavos: int
+    subtotal_centavos: int
+
+
+class OrcamentoResposta(BaseModel):
+    cliente_nome: str
+    itens: list[ItemOrcamentoResposta]
+    valor_total_centavos: int
+    mensagem: str
+
+
+
+# ============================================================
+# PORTAL DO CLIENTE - CONFIRMACAO
+# ============================================================
+
+class ConfirmacaoLojaEntrada(OrcamentoEntrada):
+    valor_total_centavos: int = Field(
+        ...,
+        strict=True,
+        gt=0
+    )
