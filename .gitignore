@@ -37,3 +37,4 @@ backups/
 
 # Bancos de dados experimentais
 sistema_mei_teste.db
+*.bak
