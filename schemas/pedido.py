@@ -47,6 +47,7 @@ class ProdutoResponse(ProdutoBase):
     id: int
     criado_em: datetime
     atualizado_em: datetime
+    estoque_minimo: int = 5
 
 
 # ============================================================
@@ -241,4 +242,17 @@ class EstoqueUpdate(BaseModel):
         strict=True,
         ge=0,
         description="Nova quantidade total em estoque"
+    )
+
+
+# ============================================================
+# CONFIGURACAO DO ESTOQUE MINIMO
+# ============================================================
+
+class EstoqueMinimoUpdate(BaseModel):
+    estoque_minimo: int = Field(
+        ...,
+        strict=True,
+        ge=0,
+        description="Quantidade minima desejada em estoque"
     )

@@ -390,3 +390,74 @@ td {
     grid-template-columns: 1fr;
   }
 }
+
+
+/* ============================================================
+   ALERTAS DE ESTOQUE MINIMO
+   ============================================================ */
+
+.estoque-alerta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 24px;
+  padding: 16px 20px;
+  border: 1px solid #f0d48d;
+  border-radius: 12px;
+  background: #fff8e6;
+  color: #855a13;
+}
+
+.estoque-alerta strong {
+  font-size: 15px;
+}
+
+.estoque-alerta span {
+  font-size: 13px;
+}
+
+.estoque-filtro {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 16px 0;
+  font-size: 14px;
+  color: #354a5e;
+  cursor: pointer;
+}
+
+.estoque-filtro input {
+  width: 16px;
+  height: 16px;
+  accent-color: #159a76;
+}
+
+.estoque-linha-alerta {
+  background: #fffcf5;
+}
+
+.status.low {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: #fff0c2;
+  color: #8c5b00;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+@media (max-width: 1000px) {
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .stats {
+    grid-template-columns: 1fr;
+  }
+
+  .estoque-alerta {
+    padding: 14px;
+  }
+}

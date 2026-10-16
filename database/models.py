@@ -26,6 +26,7 @@ class Produto(Base):
     categoria   = Column(String)
     criado_em   = Column(DateTime, default=datetime.now)
     atualizado_em = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    estoque_minimo = Column(Integer, nullable=False, default=5)
 
     def __repr__(self):
         return f"<Produto(id={self.id}, nome={self.nome}, qtd={self.quantidade})>"

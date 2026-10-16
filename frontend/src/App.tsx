@@ -9,26 +9,35 @@ import GerenciarProdutos from './components/GerenciarProdutos'
 import './App.css'
 
 type Pagina = 'estoque' | 'atendimento' | 'historico'
+type SituacaoEstoque = 'esgotado' | 'baixo' | 'normal'
 
 const moeda = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
   currency: 'BRL',
 })
 
-function App() {
-  // ============================================================
-  // ESTADOS DA APLICACAO
-  // ============================================================
+function situacaoEstoque(produto: Produto): SituacaoEstoque {
+  if (produto.quantidade === 0) {
+    return 'esgotado'
+  }
 
+  if (
+    produto.estoque_minimo > 0 &&
+    produto.quantidade <= produto.estoque_minimo
+  ) {
+    return 'baixo'
+  }
+
+  return 'normal'
+}
+
+function App() {
   const [pagina, setPagina] = useState<Pagina>('estoque')
   const [produtos, setProdutos] = useState<Produto[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
   const [busca, setBusca] = useState('')
-
-  // ============================================================
-  // CONSULTA DE PRODUTOS
-  // ============================================================
+  const [somenteAlertas, setSomenteAlertas] = useState(false)
 
   const carregarProdutos = useCallback(async () => {
     setCarregando(true)
@@ -48,26 +57,11 @@ function App() {
     }
   }, [])
 
-  // Atualiza os dados quando o usuario abre o estoque.
   useEffect(() => {
     if (pagina === 'estoque') {
       void carregarProdutos()
     }
   }, [pagina, carregarProdutos])
-
-  // ============================================================
-  // FILTROS E INDICADORES
-  // ============================================================
-
-  const produtosFiltrados = useMemo(() => {
-    const termo = busca.trim().toLocaleLowerCase('pt-BR')
-
-    return produtos.filter((produto) =>
-      `${produto.nome} ${produto.categoria ?? ''}`
-        .toLocaleLowerCase('pt-BR')
-        .includes(termo)
-    )
-  }, [produtos, busca])
 
   const totalUnidades = produtos.reduce(
     (total, produto) => total + produto.quantidade,
@@ -75,12 +69,30 @@ function App() {
   )
 
   const produtosSemEstoque = produtos.filter(
-    (produto) => produto.quantidade === 0
+    (produto) => situacaoEstoque(produto) === 'esgotado'
   ).length
 
-  // ============================================================
-  // INTERFACE
-  // ============================================================
+  const produtosEstoqueBaixo = produtos.filter(
+    (produto) => situacaoEstoque(produto) === 'baixo'
+  ).length
+
+  const totalAlertas = produtosSemEstoque + produtosEstoqueBaixo
+
+  const produtosFiltrados = useMemo(() => {
+    const termo = busca.trim().toLocaleLowerCase('pt-BR')
+
+    return produtos.filter((produto) => {
+      const correspondeBusca =
+        `${produto.nome} ${produto.categoria ?? ''}`
+          .toLocaleLowerCase('pt-BR')
+          .includes(termo)
+
+      const correspondeAlerta =
+        !somenteAlertas || situacaoEstoque(produto) !== 'normal'
+
+      return correspondeBusca && correspondeAlerta
+    })
+  }, [produtos, busca, somenteAlertas])
 
   return (
     <div className="app">
@@ -94,10 +106,7 @@ function App() {
           </div>
         </div>
 
-        <nav
-          className="navigation"
-          aria-label="Menu principal"
-        >
+        <nav className="navigation" aria-label="Menu principal">
           <button
             type="button"
             className={`nav-item ${
@@ -150,14 +159,13 @@ function App() {
           <AtendimentoIA />
         ) : (
           <>
-            {/* CABECALHO */}
             <header className="page-header">
               <div>
                 <p className="eyebrow">VISÃO GERAL</p>
                 <h1>Produtos e estoque</h1>
                 <p className="subtitle">
-                  Acompanhe e gerencie os produtos
-                  cadastrados no seu negócio.
+                  Controle os produtos e acompanhe as necessidades
+                  de reposição do empreendimento.
                 </p>
               </div>
 
@@ -171,7 +179,6 @@ function App() {
               </button>
             </header>
 
-            {/* INDICADORES */}
             <section
               className="stats"
               aria-label="Indicadores de estoque"
@@ -191,18 +198,39 @@ function App() {
               <article className="stat-card">
                 <span>Produtos sem estoque</span>
                 <strong>{produtosSemEstoque}</strong>
-                <small>Precisam de reposição</small>
+                <small>Quantidade zerada</small>
+              </article>
+
+              <article className="stat-card">
+                <span>Estoque baixo</span>
+                <strong>{produtosEstoqueBaixo}</strong>
+                <small>Produtos que precisam de reposição</small>
               </article>
             </section>
 
-            {/* INVENTARIO */}
+            {totalAlertas > 0 && !erro && (
+              <div className="estoque-alerta" role="status">
+                <strong>
+                  Atenção: {totalAlertas}{' '}
+                  {totalAlertas === 1
+                    ? 'produto precisa'
+                    : 'produtos precisam'}{' '}
+                  de atenção.
+                </strong>
+
+                <span>
+                  {produtosEstoqueBaixo} com estoque baixo e{' '}
+                  {produtosSemEstoque} sem estoque.
+                </span>
+              </div>
+            )}
+
             <section className="content-card">
               <div className="section-header">
                 <div>
                   <h2>Inventário</h2>
                   <p>
-                    Consulta de preços e quantidades
-                    disponíveis.
+                    Consulte quantidades, preços e limites mínimos.
                   </p>
                 </div>
 
@@ -217,15 +245,23 @@ function App() {
                 />
               </div>
 
+              <label className="estoque-filtro">
+                <input
+                  type="checkbox"
+                  checked={somenteAlertas}
+                  onChange={(evento) =>
+                    setSomenteAlertas(evento.target.checked)
+                  }
+                />
+                Mostrar somente produtos que precisam de atenção
+              </label>
+
               {erro && (
-                <div
-                  className="error-message"
-                  role="alert"
-                >
+                <div className="error-message" role="alert">
                   {erro}
                   <p>
-                    Verifique se o FastAPI está
-                    em execução na porta 8000.
+                    Verifique se a FastAPI está em execução
+                    na porta 8000.
                   </p>
                 </div>
               )}
@@ -234,11 +270,13 @@ function App() {
                 <p className="empty-message">
                   Carregando produtos...
                 </p>
+              ) : erro ? (
+                <p className="empty-message">
+                  Não foi possível consultar o estoque.
+                </p>
               ) : produtosFiltrados.length === 0 ? (
                 <p className="empty-message">
-                  {erro
-                    ? 'Não foi possível consultar o estoque.'
-                    : 'Nenhum produto encontrado.'}
+                  Nenhum produto encontrado para os filtros atuais.
                 </p>
               ) : (
                 <div className="table-wrapper">
@@ -248,51 +286,67 @@ function App() {
                         <th>Produto</th>
                         <th>Categoria</th>
                         <th>Preço</th>
-                        <th>Estoque</th>
+                        <th>Estoque atual</th>
+                        <th>Estoque mínimo</th>
                         <th>Situação</th>
                       </tr>
                     </thead>
 
                     <tbody>
-                      {produtosFiltrados.map((produto) => (
-                        <tr key={produto.id}>
-                          <td className="product-name">
-                            {produto.nome}
-                          </td>
+                      {produtosFiltrados.map((produto) => {
+                        const situacao = situacaoEstoque(produto)
 
-                          <td>
-                            {produto.categoria ||
-                              'Não informada'}
-                          </td>
+                        return (
+                          <tr
+                            key={produto.id}
+                            className={
+                              situacao === 'normal'
+                                ? ''
+                                : 'estoque-linha-alerta'
+                            }
+                          >
+                            <td className="product-name">
+                              {produto.nome}
+                            </td>
 
-                          <td>
-                            {moeda.format(produto.preco)}
-                          </td>
+                            <td>
+                              {produto.categoria ||
+                                'Não informada'}
+                            </td>
 
-                          <td>{produto.quantidade}</td>
+                            <td>
+                              {moeda.format(produto.preco)}
+                            </td>
 
-                          <td>
-                            <span
-                              className={
-                                produto.quantidade === 0
-                                  ? 'status empty'
-                                  : 'status available'
-                              }
-                            >
-                              {produto.quantidade === 0
-                                ? 'Sem estoque'
-                                : 'Disponível'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                            <td>{produto.quantidade}</td>
+                            <td>{produto.estoque_minimo}</td>
+
+                            <td>
+                              <span
+                                className={`status ${
+                                  situacao === 'esgotado'
+                                    ? 'empty'
+                                    : situacao === 'baixo'
+                                      ? 'low'
+                                      : 'available'
+                                }`}
+                              >
+                                {situacao === 'esgotado'
+                                  ? 'Sem estoque'
+                                  : situacao === 'baixo'
+                                    ? 'Estoque baixo'
+                                    : 'Disponível'}
+                              </span>
+                            </td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
               )}
             </section>
 
-            {/* CADASTRO E ATUALIZACAO DE ESTOQUE */}
             <GerenciarProdutos
               produtos={produtos}
               aoAtualizar={carregarProdutos}

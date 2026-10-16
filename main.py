@@ -9,7 +9,7 @@ from typing import List
 from sqlalchemy.orm import selectinload
 from database.models import Compra
 from schemas.pedido import CompraHistoricoResponse
-
+from database.models import Produto
 from database.models import init_db, get_db
 from database import crud
 from contextlib import asynccontextmanager
@@ -20,7 +20,8 @@ from schemas.pedido import (
     PedidoResponse,
     EntradaUsuario,
     RespostaAgente,
-    EstoqueUpdate
+    EstoqueUpdate,
+    EstoqueMinimoUpdate
 )
 
 from rag.loader import carregar_base_conhecimento
@@ -206,6 +207,48 @@ def atualizar_estoque_produto(
             status_code=codigo,
             detail=mensagem
         ) from erro
+
+
+# ============================================================
+# CONFIGURACAO DO ESTOQUE MINIMO
+# ============================================================
+
+@app.patch(
+    "/produtos/{produto_id}/estoque-minimo",
+    response_model=ProdutoResponse
+)
+def configurar_estoque_minimo(
+    produto_id: int,
+    entrada: EstoqueMinimoUpdate,
+    db: Session = Depends(get_db)
+):
+    if produto_id < 1:
+        raise HTTPException(
+            status_code=422,
+            detail="Identificador do produto invalido."
+        )
+
+    produto = db.query(Produto).filter(
+        Produto.id == produto_id
+    ).first()
+
+    if produto is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Produto não encontrado."
+        )
+
+    produto.estoque_minimo = entrada.estoque_minimo
+
+    try:
+        db.commit()
+        db.refresh(produto)
+    except Exception:
+        db.rollback()
+        raise
+
+    return produto
+
 # ============================================================
 # ROTAS DE PEDIDOS LEGADOS
 # ============================================================

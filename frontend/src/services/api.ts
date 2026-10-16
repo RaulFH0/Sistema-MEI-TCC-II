@@ -10,6 +10,7 @@ export interface Produto {
   categoria: string | null
   criado_em: string
   atualizado_em: string
+  estoque_minimo: number
 }
 
 export interface ItemCompra {
@@ -184,6 +185,36 @@ export async function atualizarEstoque(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ quantidade }),
+    }
+  )
+
+  const dados: unknown = await resposta.json()
+
+  if (!resposta.ok) {
+    throw new ApiError(
+      mensagemErroApi(dados),
+      resposta.status
+    )
+  }
+
+  return dados as Produto
+}
+
+
+export async function configurarEstoqueMinimo(
+  produtoId: number,
+  estoqueMinimo: number
+): Promise<Produto> {
+  const resposta = await fetch(
+    `/api/produtos/${produtoId}/estoque-minimo`,
+    {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        estoque_minimo: estoqueMinimo,
+      }),
     }
   )
 
