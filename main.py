@@ -14,6 +14,12 @@ from database.models import init_db, get_db
 from database import crud
 from contextlib import asynccontextmanager
 
+from security.routes import router as auth_router
+from security.routes import (
+    exigir_admin,
+    exigir_admin_escrita
+)
+
 from decimal import Decimal, ROUND_HALF_UP
 
 from schemas.pedido import (
@@ -66,7 +72,7 @@ app = FastAPI(
 )
 
 
-
+app.include_router(auth_router)
 
 
 # ============================================================
@@ -151,7 +157,8 @@ def listar_produtos(
 
 @app.post(
     "/produtos",
-    response_model=ProdutoResponse
+    response_model=ProdutoResponse,
+    dependencies=[Depends(exigir_admin_escrita)]
 )
 def criar_produto(
     produto: ProdutoCreate,
@@ -179,7 +186,8 @@ def criar_produto(
 
 @app.patch(
     "/produtos/{produto_id}/estoque",
-    response_model=ProdutoResponse
+    response_model=ProdutoResponse,
+    dependencies=[Depends(exigir_admin_escrita)]
 )
 def atualizar_estoque_produto(
     produto_id: int,
@@ -220,7 +228,8 @@ def atualizar_estoque_produto(
 
 @app.patch(
     "/produtos/{produto_id}/estoque-minimo",
-    response_model=ProdutoResponse
+    response_model=ProdutoResponse,
+    dependencies=[Depends(exigir_admin_escrita)]
 )
 def configurar_estoque_minimo(
     produto_id: int,
@@ -260,7 +269,8 @@ def configurar_estoque_minimo(
 
 @app.get(
     "/pedidos",
-    response_model=List[PedidoResponse]
+    response_model=List[PedidoResponse],
+    dependencies=[Depends(exigir_admin)]
 )
 def listar_pedidos(
     db: Session = Depends(get_db)
@@ -275,7 +285,8 @@ def listar_pedidos(
 
 @app.get(
     "/compras",
-    response_model=List[CompraHistoricoResponse]
+    response_model=List[CompraHistoricoResponse],
+    dependencies=[Depends(exigir_admin)]
 )
 def listar_compras_v2(
     limite: int = 50,

@@ -225,6 +225,41 @@ class ItemCompra(Base):
     )
 
 
+class SessaoAdmin(Base):
+    __tablename__ = "sessoes_admin"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    token_hash = Column(
+        String(64),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+
+    usuario = Column(
+        String(100),
+        nullable=False,
+    )
+
+    criado_em = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+    )
+
+    expira_em = Column(
+        DateTime,
+        nullable=False,
+    )
+
+    revogada_em = Column(
+        DateTime,
+        nullable=True,
+    )
+
+
+
 def init_db():
     Base.metadata.create_all(bind=engine)
     print("Banco de dados inicializado com sucesso!")

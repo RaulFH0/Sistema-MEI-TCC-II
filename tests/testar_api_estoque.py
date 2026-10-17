@@ -6,13 +6,15 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from tests.auth_helpers import autenticar_cliente_admin
+
 import main
 
 from database.models import Base, get_db, Produto
 
 
 @pytest.fixture
-def cliente_api():
+def cliente_api(monkeypatch):
     # Banco temporario em memoria
     engine = create_engine(
         "sqlite://",
@@ -38,6 +40,7 @@ def cliente_api():
 
     try:
         cliente = TestClient(main.app)
+        autenticar_cliente_admin(cliente, monkeypatch)
         yield cliente
     finally:
         main.app.dependency_overrides.clear()

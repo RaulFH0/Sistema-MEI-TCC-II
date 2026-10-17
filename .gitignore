@@ -7,6 +7,8 @@
 # Ambientes virtuais
 venv/
 .venv/
+venv-1/
+venv-2/
 
 # Python
 __pycache__/

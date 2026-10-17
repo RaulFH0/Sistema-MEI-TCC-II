@@ -6,12 +6,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from tests.auth_helpers import autenticar_cliente_admin
+
 import main
 from database.models import Base, Compra, Produto, get_db
 
 
 @pytest.fixture
-def ambiente():
+def ambiente(monkeypatch):
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -37,6 +39,7 @@ def ambiente():
     try:
         # Sem context manager para nao executar o lifespan real.
         cliente = TestClient(main.app)
+        autenticar_cliente_admin(cliente, monkeypatch)
 
         cadastro = cliente.post(
             "/produtos",
