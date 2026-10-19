@@ -1,20 +1,40 @@
-
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { listarProdutos, type Produto } from './services/api'
+
 import AtendimentoIA from './components/AtendimentoIA'
 import HistoricoCompras from './components/HistoricoCompras'
 import GerenciarProdutos from './components/GerenciarProdutos'
+import LoginAdmin from './components/LoginAdmin'
+
+import {
+  consultarSessao,
+  realizarLogout,
+  type SessaoAdmin,
+} from './services/auth'
 
 import './App.css'
 
+// ============================================================
+// TIPOS
+// ============================================================
+
 type Pagina = 'estoque' | 'atendimento' | 'historico'
+
 type SituacaoEstoque = 'esgotado' | 'baixo' | 'normal'
+
+// ============================================================
+// FORMATACAO DE MOEDA
+// ============================================================
 
 const moeda = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
   currency: 'BRL',
 })
+
+// ============================================================
+// SITUACAO DO ESTOQUE
+// ============================================================
 
 function situacaoEstoque(produto: Produto): SituacaoEstoque {
   if (produto.quantidade === 0) {
@@ -31,13 +51,116 @@ function situacaoEstoque(produto: Produto): SituacaoEstoque {
   return 'normal'
 }
 
+// ============================================================
+// COMPONENTE PRINCIPAL
+// ============================================================
+
 function App() {
+  // ----------------------------------------------------------
+  // NAVEGACAO
+  // ----------------------------------------------------------
+
   const [pagina, setPagina] = useState<Pagina>('estoque')
+
+  // ----------------------------------------------------------
+  // AUTENTICACAO ADMINISTRATIVA
+  // ----------------------------------------------------------
+
+  const [sessao, setSessao] = useState<SessaoAdmin | null>(
+    null
+  )
+
+  const [verificandoSessao, setVerificandoSessao] =
+    useState(true)
+
+  const [encerrandoSessao, setEncerrandoSessao] =
+    useState(false)
+
+  const [erroAutenticacao, setErroAutenticacao] =
+    useState('')
+
+  // ----------------------------------------------------------
+  // ESTADOS DO ESTOQUE
+  // ----------------------------------------------------------
+
   const [produtos, setProdutos] = useState<Produto[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState('')
   const [busca, setBusca] = useState('')
   const [somenteAlertas, setSomenteAlertas] = useState(false)
+
+  // ==========================================================
+  // VERIFICAR SESSAO AO INICIAR A APLICACAO
+  // ==========================================================
+
+  useEffect(() => {
+    let ativo = true
+
+    async function verificarAutenticacao() {
+      try {
+        const resultado = await consultarSessao()
+
+        if (ativo) {
+          setSessao(resultado)
+          setErroAutenticacao('')
+        }
+      } catch (falha) {
+        if (ativo) {
+          setErroAutenticacao(
+            falha instanceof Error
+              ? falha.message
+              : 'Erro ao verificar autenticação.'
+          )
+        }
+      } finally {
+        if (ativo) {
+          setVerificandoSessao(false)
+        }
+      }
+    }
+
+    void verificarAutenticacao()
+
+    return () => {
+      ativo = false
+    }
+  }, [])
+
+  // ==========================================================
+  // ENCERRAR SESSAO ADMINISTRATIVA
+  // ==========================================================
+
+  async function sairDoPainel() {
+    if (encerrandoSessao) {
+      return
+    }
+
+    setEncerrandoSessao(true)
+    setErroAutenticacao('')
+
+    try {
+      await realizarLogout()
+
+      setSessao(null)
+      setPagina('estoque')
+      setProdutos([])
+      setBusca('')
+      setSomenteAlertas(false)
+      setErro('')
+    } catch (falha) {
+      setErroAutenticacao(
+        falha instanceof Error
+          ? falha.message
+          : 'Não foi possível encerrar a sessão.'
+      )
+    } finally {
+      setEncerrandoSessao(false)
+    }
+  }
+
+  // ==========================================================
+  // CARREGAR PRODUTOS
+  // ==========================================================
 
   const carregarProdutos = useCallback(async () => {
     setCarregando(true)
@@ -57,11 +180,19 @@ function App() {
     }
   }, [])
 
+  // ==========================================================
+  // ATUALIZAR ESTOQUE AO ENTRAR NO PAINEL
+  // ==========================================================
+
   useEffect(() => {
-    if (pagina === 'estoque') {
+    if (sessao && pagina === 'estoque') {
       void carregarProdutos()
     }
-  }, [pagina, carregarProdutos])
+  }, [sessao, pagina, carregarProdutos])
+
+  // ==========================================================
+  // INDICADORES DO ESTOQUE
+  // ==========================================================
 
   const totalUnidades = produtos.reduce(
     (total, produto) => total + produto.quantidade,
@@ -76,7 +207,12 @@ function App() {
     (produto) => situacaoEstoque(produto) === 'baixo'
   ).length
 
-  const totalAlertas = produtosSemEstoque + produtosEstoqueBaixo
+  const totalAlertas =
+    produtosSemEstoque + produtosEstoqueBaixo
+
+  // ==========================================================
+  // FILTRAGEM DOS PRODUTOS
+  // ==========================================================
 
   const produtosFiltrados = useMemo(() => {
     const termo = busca.trim().toLocaleLowerCase('pt-BR')
@@ -88,15 +224,54 @@ function App() {
           .includes(termo)
 
       const correspondeAlerta =
-        !somenteAlertas || situacaoEstoque(produto) !== 'normal'
+        !somenteAlertas ||
+        situacaoEstoque(produto) !== 'normal'
 
       return correspondeBusca && correspondeAlerta
     })
   }, [produtos, busca, somenteAlertas])
 
+  // ==========================================================
+  // TELA DE VERIFICACAO DE SESSAO
+  // ==========================================================
+
+  if (verificandoSessao) {
+    return (
+      <div className="login-page" role="status">
+        <p>Verificando sessão administrativa...</p>
+      </div>
+    )
+  }
+
+  // ==========================================================
+  // TELA DE LOGIN
+  // ==========================================================
+
+  if (!sessao) {
+    return (
+      <LoginAdmin
+        aoAutenticar={(novaSessao) => {
+          setSessao(novaSessao)
+          setErroAutenticacao('')
+          setPagina('estoque')
+        }}
+      />
+    )
+  }
+
+  // ==========================================================
+  // PAINEL ADMINISTRATIVO AUTENTICADO
+  // ==========================================================
+
   return (
     <div className="app">
+
+      {/* =====================================================
+          MENU LATERAL
+      ===================================================== */}
+
       <aside className="sidebar">
+
         <div className="brand">
           <div className="brand-icon">M</div>
 
@@ -106,7 +281,14 @@ function App() {
           </div>
         </div>
 
-        <nav className="navigation" aria-label="Menu principal">
+        {/* ---------------------------------------------------
+            NAVEGACAO
+        --------------------------------------------------- */}
+
+        <nav
+          className="navigation"
+          aria-label="Menu principal"
+        >
           <button
             type="button"
             className={`nav-item ${
@@ -147,22 +329,82 @@ function App() {
           </button>
         </nav>
 
+        {/* ---------------------------------------------------
+            USUARIO AUTENTICADO E LOGOUT
+        --------------------------------------------------- */}
+
         <div className="sidebar-footer">
-          Protótipo acadêmico — TCC II
+
+          <div style={{ marginBottom: 12 }}>
+            <strong>Administrador</strong>
+
+            <p style={{ margin: '4px 0' }}>
+              {sessao.usuario}
+            </p>
+          </div>
+
+          {erroAutenticacao && (
+            <p role="alert">
+              {erroAutenticacao}
+            </p>
+          )}
+
+          <button
+            type="button"
+            onClick={() => void sairDoPainel()}
+            disabled={encerrandoSessao}
+            style={{
+              width: '100%',
+              padding: '10px',
+              cursor: encerrandoSessao
+                ? 'not-allowed'
+                : 'pointer',
+              borderRadius: '8px',
+            }}
+          >
+            {encerrandoSessao
+              ? 'Saindo...'
+              : 'Sair do painel'}
+          </button>
+
+          <p style={{ marginTop: 16 }}>
+            Protótipo acadêmico — TCC II
+          </p>
+
         </div>
+
       </aside>
 
+      {/* =====================================================
+          CONTEUDO PRINCIPAL
+      ===================================================== */}
+
       <main className="main">
+
         {pagina === 'historico' ? (
+
           <HistoricoCompras />
+
         ) : pagina === 'atendimento' ? (
+
           <AtendimentoIA />
+
         ) : (
+
           <>
+            {/* ================================================
+                CABECALHO DO ESTOQUE
+            ================================================ */}
+
             <header className="page-header">
+
               <div>
-                <p className="eyebrow">VISÃO GERAL</p>
+                <p className="eyebrow">
+                  VISÃO GERAL
+                </p>
+
                 <h1>Produtos e estoque</h1>
+
                 <p className="subtitle">
                   Controle os produtos e acompanhe as necessidades
                   de reposição do empreendimento.
@@ -177,44 +419,78 @@ function App() {
               >
                 ↻ Atualizar
               </button>
+
             </header>
+
+            {/* ================================================
+                INDICADORES DO ESTOQUE
+            ================================================ */}
 
             <section
               className="stats"
               aria-label="Indicadores de estoque"
             >
+
               <article className="stat-card">
                 <span>Produtos cadastrados</span>
-                <strong>{produtos.length}</strong>
+
+                <strong>
+                  {produtos.length}
+                </strong>
+
                 <small>Tipos de produtos</small>
               </article>
 
               <article className="stat-card">
                 <span>Unidades em estoque</span>
-                <strong>{totalUnidades}</strong>
+
+                <strong>
+                  {totalUnidades}
+                </strong>
+
                 <small>Total disponível</small>
               </article>
 
               <article className="stat-card">
                 <span>Produtos sem estoque</span>
-                <strong>{produtosSemEstoque}</strong>
+
+                <strong>
+                  {produtosSemEstoque}
+                </strong>
+
                 <small>Quantidade zerada</small>
               </article>
 
               <article className="stat-card">
                 <span>Estoque baixo</span>
-                <strong>{produtosEstoqueBaixo}</strong>
-                <small>Produtos que precisam de reposição</small>
+
+                <strong>
+                  {produtosEstoqueBaixo}
+                </strong>
+
+                <small>
+                  Produtos que precisam de reposição
+                </small>
               </article>
+
             </section>
 
+            {/* ================================================
+                ALERTAS DE ESTOQUE
+            ================================================ */}
+
             {totalAlertas > 0 && !erro && (
-              <div className="estoque-alerta" role="status">
+              <div
+                className="estoque-alerta"
+                role="status"
+              >
                 <strong>
                   Atenção: {totalAlertas}{' '}
+
                   {totalAlertas === 1
                     ? 'produto precisa'
                     : 'produtos precisam'}{' '}
+
                   de atenção.
                 </strong>
 
@@ -225,10 +501,17 @@ function App() {
               </div>
             )}
 
+            {/* ================================================
+                LISTAGEM DO INVENTARIO
+            ================================================ */}
+
             <section className="content-card">
+
               <div className="section-header">
+
                 <div>
                   <h2>Inventário</h2>
+
                   <p>
                     Consulte quantidades, preços e limites mínimos.
                   </p>
@@ -243,9 +526,15 @@ function App() {
                     setBusca(evento.target.value)
                   }
                 />
+
               </div>
 
+              {/* ---------------------------------------------
+                  FILTRO DE ALERTAS
+              --------------------------------------------- */}
+
               <label className="estoque-filtro">
+
                 <input
                   type="checkbox"
                   checked={somenteAlertas}
@@ -253,12 +542,22 @@ function App() {
                     setSomenteAlertas(evento.target.checked)
                   }
                 />
+
                 Mostrar somente produtos que precisam de atenção
+
               </label>
 
+              {/* ---------------------------------------------
+                  MENSAGENS DE ERRO
+              --------------------------------------------- */}
+
               {erro && (
-                <div className="error-message" role="alert">
+                <div
+                  className="error-message"
+                  role="alert"
+                >
                   {erro}
+
                   <p>
                     Verifique se a FastAPI está em execução
                     na porta 8000.
@@ -266,21 +565,34 @@ function App() {
                 </div>
               )}
 
+              {/* ---------------------------------------------
+                  ESTADOS DA LISTAGEM
+              --------------------------------------------- */}
+
               {carregando ? (
+
                 <p className="empty-message">
                   Carregando produtos...
                 </p>
+
               ) : erro ? (
+
                 <p className="empty-message">
                   Não foi possível consultar o estoque.
                 </p>
+
               ) : produtosFiltrados.length === 0 ? (
+
                 <p className="empty-message">
                   Nenhum produto encontrado para os filtros atuais.
                 </p>
+
               ) : (
+
                 <div className="table-wrapper">
+
                   <table>
+
                     <thead>
                       <tr>
                         <th>Produto</th>
@@ -293,8 +605,11 @@ function App() {
                     </thead>
 
                     <tbody>
+
                       {produtosFiltrados.map((produto) => {
-                        const situacao = situacaoEstoque(produto)
+
+                        const situacao =
+                          situacaoEstoque(produto)
 
                         return (
                           <tr
@@ -318,8 +633,13 @@ function App() {
                               {moeda.format(produto.preco)}
                             </td>
 
-                            <td>{produto.quantidade}</td>
-                            <td>{produto.estoque_minimo}</td>
+                            <td>
+                              {produto.quantidade}
+                            </td>
+
+                            <td>
+                              {produto.estoque_minimo}
+                            </td>
 
                             <td>
                               <span
@@ -338,22 +658,36 @@ function App() {
                                     : 'Disponível'}
                               </span>
                             </td>
+
                           </tr>
                         )
                       })}
+
                     </tbody>
+
                   </table>
+
                 </div>
+
               )}
+
             </section>
+
+            {/* ================================================
+                GERENCIAMENTO DE PRODUTOS
+            ================================================ */}
 
             <GerenciarProdutos
               produtos={produtos}
               aoAtualizar={carregarProdutos}
             />
+
           </>
+
         )}
+
       </main>
+
     </div>
   )
 }

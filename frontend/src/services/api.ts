@@ -1,4 +1,6 @@
 
+import { obterCsrfToken } from './auth'
+
 const API_BASE = '/api'
 
 export interface Produto {
@@ -46,6 +48,22 @@ export class ApiError extends Error {
     super(mensagem)
     this.name = 'ApiError'
     this.status = status
+  }
+}
+
+export function cabecalhosAdmin(): Record<string, string> {
+  const csrf = obterCsrfToken()
+
+  if (!csrf) {
+    throw new ApiError(
+      'Sessão administrativa não disponível. Faça login.',
+      401
+    )
+  }
+
+  return {
+    'Content-Type': 'application/json',
+    'X-CSRF-Token': csrf,
   }
 }
 
@@ -155,9 +173,8 @@ export async function cadastrarProduto(
 ): Promise<Produto> {
   const resposta = await fetch('/api/produtos', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+   headers: cabecalhosAdmin(),
+   credentials: 'same-origin',
     body: JSON.stringify(produto),
   })
 
@@ -181,9 +198,8 @@ export async function atualizarEstoque(
     `/api/produtos/${produtoId}/estoque`,
     {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+     headers: cabecalhosAdmin(),
+     credentials: 'same-origin',
       body: JSON.stringify({ quantidade }),
     }
   )
@@ -209,9 +225,8 @@ export async function configurarEstoqueMinimo(
     `/api/produtos/${produtoId}/estoque-minimo`,
     {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+     headers: cabecalhosAdmin(),
+     credentials: 'same-origin',
       body: JSON.stringify({
         estoque_minimo: estoqueMinimo,
       }),
