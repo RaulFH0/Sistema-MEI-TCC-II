@@ -371,3 +371,190 @@ export async function confirmarPedidoLoja(
 
   return dados as RespostaConfirmacaoLoja
 }
+
+
+/* ============================================================
+   PORTAL PUBLICO MULTI-MEI
+   ============================================================ */
+
+function caminhoLojaPublica(slug: string): string {
+  const identificador = slug.trim()
+
+  if (
+    !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(identificador)
+  ) {
+    throw new ApiError(
+      'Identificador da loja inválido.',
+      422
+    )
+  }
+
+  return `${API_BASE}/lojas/${encodeURIComponent(identificador)}`
+}
+
+
+/* ============================================================
+   CATALOGO PUBLICO POR LOJA
+   ============================================================ */
+
+export async function listarProdutosLoja(
+  slug: string
+): Promise<Produto[]> {
+  const resposta = await fetch(
+    `${caminhoLojaPublica(slug)}/produtos`,
+    { cache: 'no-store' }
+  )
+
+  if (!resposta.ok) {
+    throw new ApiError(
+      'Não foi possível carregar os produtos desta loja.',
+      resposta.status
+    )
+  }
+
+  return (await resposta.json()) as Produto[]
+}
+
+
+/* ============================================================
+   ORCAMENTO PUBLICO POR LOJA
+   ============================================================ */
+
+export async function gerarOrcamentoLojaMei(
+  slug: string,
+  clienteNome: string,
+  itens: Array<{
+    produto_id: number
+    quantidade: number
+  }>
+): Promise<OrcamentoLoja> {
+  const resposta = await fetch(
+    `${caminhoLojaPublica(slug)}/orcamento`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        cliente_nome: clienteNome,
+        itens,
+      }),
+    }
+  )
+
+  const dados: unknown = await resposta.json()
+
+  if (!resposta.ok) {
+    throw new ApiError(
+      mensagemErroApi(dados),
+      resposta.status
+    )
+  }
+
+  return dados as OrcamentoLoja
+}
+
+
+/* ============================================================
+   CONFIRMACAO DE COMPRA POR LOJA
+   ============================================================ */
+
+export async function confirmarPedidoLojaMei(
+  slug: string,
+  solicitacao: SolicitacaoConfirmacaoLoja,
+  chaveIdempotencia: string
+): Promise<RespostaConfirmacaoLoja> {
+  const resposta = await fetch(
+    `${caminhoLojaPublica(slug)}/confirmar`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': chaveIdempotencia,
+      },
+      body: JSON.stringify(solicitacao),
+    }
+  )
+
+  let dados: unknown
+
+  try {
+    dados = await resposta.json()
+  } catch {
+    throw new ApiError(
+      'Não foi possível interpretar a resposta. ' +
+      'Verifique a tentativa antes de iniciar outra compra.',
+      resposta.status
+    )
+  }
+
+  if (!resposta.ok) {
+    throw new ApiError(
+      mensagemErroApi(dados),
+      resposta.status
+    )
+  }
+
+  return dados as RespostaConfirmacaoLoja
+}
+
+
+/* ============================================================
+   ATENDIMENTO IA POR LOJA
+   ============================================================ */
+
+export async function enviarMensagemLojaMei(
+  slug: string,
+  mensagem: string,
+  chaveIdempotencia: string
+): Promise<RespostaAtendimento> {
+  const resposta = await fetch(
+    `${caminhoLojaPublica(slug)}/atender`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': chaveIdempotencia,
+      },
+      body: JSON.stringify({ mensagem }),
+    }
+  )
+
+  let dados: unknown
+
+  try {
+    dados = await resposta.json()
+  } catch {
+    throw new ApiError(
+      'Não foi possível interpretar a resposta do atendimento. ' +
+      'Verifique a tentativa antes de reenviar.',
+      resposta.status
+    )
+  }
+
+  if (!resposta.ok) {
+    const detalhe =
+      typeof dados === 'object' &&
+      dados !== null &&
+      'detail' in dados
+        ? dados.detail
+        : null
+
+    const mensagemErro =
+      typeof detalhe === 'string'
+        ? detalhe
+        : typeof detalhe === 'object' &&
+            detalhe !== null &&
+            'mensagem' in detalhe &&
+            typeof detalhe.mensagem === 'string'
+          ? detalhe.mensagem
+          : 'Não foi possível processar o atendimento.'
+
+    throw new ApiError(
+      mensagemErro,
+      resposta.status
+    )
+  }
+
+  return dados as RespostaAtendimento
+}

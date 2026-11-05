@@ -27,6 +27,12 @@ class Produto(Base):
     criado_em   = Column(DateTime, default=datetime.now)
     atualizado_em = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     estoque_minimo = Column(Integer, nullable=False, default=5)
+    estabelecimento_id = Column(
+    Integer,
+    ForeignKey("estabelecimentos.id"),
+    nullable=True,
+    index=True,
+)
 
     def __repr__(self):
         return f"<Produto(id={self.id}, nome={self.nome}, qtd={self.quantidade})>"
@@ -112,8 +118,7 @@ class Compra(Base):
 
     chave_idempotencia = Column(
         String,
-        nullable=False,
-        unique=True
+        nullable=False
     )
 
     hash_solicitacao = Column(
@@ -122,7 +127,7 @@ class Compra(Base):
     )
 
     hash_mensagem = Column(
-        String(64), 
+        String(64),
         nullable=True
     )
 
@@ -151,13 +156,23 @@ class Compra(Base):
     )
 
     __table_args__ = (
-        CheckConstraint(
-            "valor_total >= 0",
-            name="ck_compra_valor_total"
-        ),
-    )
+    CheckConstraint(
+        "valor_total >= 0",
+        name="ck_compra_valor_total"
+    ),
+    UniqueConstraint(
+        "estabelecimento_id",
+        "chave_idempotencia",
+        name="uq_compras_estabelecimento_chave",
+    ),
+)
 
-
+    estabelecimento_id = Column(
+    Integer,
+    ForeignKey("estabelecimentos.id"),
+    nullable=True,
+    index=True,
+)
 # ============================================================
 # NOVA TABELA DE ITENS DA COMPRA
 # ============================================================
@@ -242,6 +257,25 @@ class SessaoAdmin(Base):
         nullable=False,
     )
 
+
+    # Identificacao do usuario MEI associado a sessao.
+    # NULL permite preservar sessoes administrativas antigas.
+    usuario_mei_id = Column(
+        Integer,
+        ForeignKey("usuarios_mei.id"),
+        nullable=True,
+        index=True,
+    )
+
+    # Estabelecimento ao qual a sessao esta vinculada.
+    estabelecimento_id = Column(
+        Integer,
+        ForeignKey("estabelecimentos.id"),
+        nullable=True,
+        index=True,
+    )
+
+
     criado_em = Column(
         DateTime,
         nullable=False,
@@ -259,6 +293,7 @@ class SessaoAdmin(Base):
     )
 
 
+import database.contas_models  # Registra Estabelecimento e UsuarioMEI no metadata
 
 def init_db():
     Base.metadata.create_all(bind=engine)

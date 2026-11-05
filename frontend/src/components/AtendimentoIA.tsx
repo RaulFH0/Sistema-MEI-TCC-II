@@ -5,6 +5,7 @@ import type { FormEvent } from 'react'
 import {
   ApiError,
   enviarMensagem,
+  enviarMensagemLojaMei,
   type RespostaAtendimento,
 } from '../services/api'
 
@@ -13,20 +14,34 @@ import './AtendimentoIA.css'
 type Solicitacao = {
   mensagem: string
   chave: string
+  lojaSlug?: string
+}
+
+type AtendimentoIAProps = {
+  slug?: string
 }
 
 type TipoErro = 'conflito' | 'validacao' | 'incerto' | null
 
 const CHAVE_ARMAZENAMENTO = 'sistema-mei-atendimento-pendente-v1'
 
+function chaveAtendimentoPorLoja(slug?: string): string {
+  return slug
+    ? `sistema-mei-atendimento-pendente-v2:${slug}`
+    : CHAVE_ARMAZENAMENTO
+}
+
 const moeda = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
   currency: 'BRL',
 })
 
-function recuperarSolicitacao(): Solicitacao | null {
+function recuperarSolicitacao(
+  chaveArmazenamento: string,
+  slug?: string
+): Solicitacao | null {
   try {
-    const salvo = sessionStorage.getItem(CHAVE_ARMAZENAMENTO)
+    const salvo = sessionStorage.getItem(chaveArmazenamento)
 
     if (!salvo) return null
 
@@ -45,37 +60,52 @@ function recuperarSolicitacao(): Solicitacao | null {
       return null
     }
 
+    if (
+      slug
+        ? !('lojaSlug' in dados) || dados.lojaSlug !== slug
+        : 'lojaSlug' in dados
+    ) {
+      return null
+    }
+
     return {
       mensagem: dados.mensagem,
       chave: dados.chave,
+      ...(slug ? { lojaSlug: slug } : {}),
     }
   } catch {
     return null
   }
 }
 
-function salvarSolicitacao(dados: Solicitacao): void {
+function salvarSolicitacao(
+  dados: Solicitacao,
+  chaveArmazenamento: string
+): void {
   sessionStorage.setItem(
-    CHAVE_ARMAZENAMENTO,
+    chaveArmazenamento,
     JSON.stringify(dados)
   )
 }
 
-function removerSolicitacao(): void {
-  sessionStorage.removeItem(CHAVE_ARMAZENAMENTO)
+function removerSolicitacao(chaveArmazenamento: string): void {
+  sessionStorage.removeItem(chaveArmazenamento)
 }
 
-export default function AtendimentoIA() {
+export default function AtendimentoIA({
+  slug,
+}: AtendimentoIAProps) {
+  const chaveArmazenamento = chaveAtendimentoPorLoja(slug)
   const [solicitacao, setSolicitacao] = useState<
     Solicitacao | null
-  >(recuperarSolicitacao)
+  >(() => recuperarSolicitacao(chaveArmazenamento, slug))
 
   const [mensagem, setMensagem] = useState(() => {
-    return recuperarSolicitacao()?.mensagem ?? ''
+    return recuperarSolicitacao(chaveArmazenamento, slug)?.mensagem ?? ''
   })
 
   const [ultimaMensagem, setUltimaMensagem] = useState(() => {
-    return recuperarSolicitacao()?.mensagem ?? ''
+    return recuperarSolicitacao(chaveArmazenamento, slug)?.mensagem ?? ''
   })
 
   const [resultado, setResultado] = useState<
@@ -94,6 +124,16 @@ export default function AtendimentoIA() {
   async function processar(dados: Solicitacao) {
     if (enviandoRef.current) return
 
+    if (
+      slug
+        ? dados.lojaSlug !== slug
+        : dados.lojaSlug !== undefined
+    ) {
+      setErro('Esta tentativa pertence a outra loja.')
+      setTipoErro('incerto')
+      return
+    }
+
     enviandoRef.current = true
     setEnviando(true)
     setErro('')
@@ -101,10 +141,16 @@ export default function AtendimentoIA() {
     setResultado(null)
 
     try {
-      const resposta = await enviarMensagem(
-        dados.mensagem,
-        dados.chave
-      )
+      const resposta = slug
+        ? await enviarMensagemLojaMei(
+            slug,
+            dados.mensagem,
+            dados.chave
+          )
+        : await enviarMensagem(
+            dados.mensagem,
+            dados.chave
+          )
 
       if (!resposta.sucesso) {
         throw new Error(
@@ -118,7 +164,7 @@ export default function AtendimentoIA() {
       setResultado(resposta)
       setUltimaMensagem(dados.mensagem)
 
-      removerSolicitacao()
+      removerSolicitacao(chaveArmazenamento)
       setSolicitacao(null)
       setMensagem('')
     } catch (falha) {
@@ -162,11 +208,12 @@ export default function AtendimentoIA() {
     const novaSolicitacao: Solicitacao = {
       mensagem: texto,
       chave: crypto.randomUUID(),
+      ...(slug ? { lojaSlug: slug } : {}),
     }
 
     try {
       // Salvar ANTES de enviar para o backend.
-      salvarSolicitacao(novaSolicitacao)
+      salvarSolicitacao(novaSolicitacao, chaveArmazenamento)
     } catch {
       setErro(
         'Nao foi possivel proteger esta solicitacao ' +
@@ -209,7 +256,7 @@ export default function AtendimentoIA() {
     }
 
     try {
-      removerSolicitacao()
+      removerSolicitacao(chaveArmazenamento)
     } catch {
       setErro('Nao foi possivel limpar a tentativa anterior.')
       return

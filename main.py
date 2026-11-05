@@ -14,7 +14,18 @@ from database.models import init_db, get_db
 from database import crud
 from contextlib import asynccontextmanager
 
+from security.lojas_publicas_routes import _resolver_loja
+
+from security.lojas_publicas_routes import (
+    router as lojas_publicas_router,
+)
+
+from security.mei_produtos_routes import (
+    router as mei_produtos_router,
+)
+
 from security.routes import router as auth_router
+from security.mei_routes import router as mei_router
 from security.routes import (
     exigir_admin,
     exigir_admin_escrita
@@ -73,6 +84,9 @@ app = FastAPI(
 
 
 app.include_router(auth_router)
+app.include_router(mei_router)
+app.include_router(mei_produtos_router)
+app.include_router(lojas_publicas_router)
 
 
 # ============================================================
@@ -672,3 +686,123 @@ def health_check():
         "sistema": "MEI Agentes IA",
         "versao": VERSAO_API
     }
+
+
+
+# ============================================================
+# ATENDIMENTO PUBLICO COM IA - MULTI-MEI
+# ============================================================
+
+@app.post(
+    "/lojas/{slug}/atender",
+    response_model=RespostaAgente,
+)
+def atender_cliente_mei(
+    slug: str,
+    entrada: EntradaUsuario,
+    idempotency_key: str = Header(
+        ...,
+        alias="Idempotency-Key",
+        min_length=1,
+        max_length=128,
+    ),
+    db: Session = Depends(get_db),
+):
+    # Resolver a loja no servidor.
+    # O cliente informa o slug, nunca o ID interno.
+    loja = _resolver_loja(db, slug)
+    estabelecimento_id = loja.id
+
+    try:
+        resultado = processar_pedido(
+            mensagem_usuario=entrada.mensagem,
+            chave_idempotencia=idempotency_key,
+            estabelecimento_id=estabelecimento_id,
+        )
+
+    except Exception as erro:
+        logger.exception(
+            "Falha inesperada no atendimento da loja %s",
+            slug,
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Erro interno ao processar o atendimento. "
+                "Consulte o estado da compra antes de reenviar."
+            ),
+        ) from erro
+
+    tempo_ms = resultado.get("tempo_ms", 0)
+
+    # --------------------------------------------------------
+    # COMPRA CONFIRMADA OU REQUISICAO REPETIDA
+    # --------------------------------------------------------
+
+    if resultado.get("sucesso") is True:
+        pedido = resultado["resultado"]
+
+        compra_id = pedido["compra_id"]
+        cliente = pedido["cliente_nome"]
+        total = pedido["valor_total"]
+
+        valor_formatado = (
+            f"R$ {total:.2f}".replace(".", ",")
+        )
+
+        if pedido.get("requisicao_repetida"):
+            acao = "pedido_repetido"
+            mensagem = (
+                f"Compra #{compra_id} de {cliente} "
+                "ja registrada anteriormente. "
+                f"Valor total: {valor_formatado}. "
+                "Nenhuma nova compra foi realizada."
+            )
+        else:
+            acao = "pedido_confirmado"
+            mensagem = (
+                f"Compra #{compra_id} de {cliente} "
+                "confirmada com sucesso! "
+                f"Valor total: {valor_formatado}."
+            )
+
+        return RespostaAgente(
+            resposta=mensagem,
+            acao_executada=acao,
+            sucesso=True,
+            dados={
+                "tempo_ms": tempo_ms,
+                "pedido": pedido,
+            },
+        )
+
+    # --------------------------------------------------------
+    # ATENDIMENTO REJEITADO
+    # --------------------------------------------------------
+
+    erro = resultado.get(
+        "erro",
+        "Erro desconhecido.",
+    )
+
+    codigo_http, mensagem_erro = (
+        identificar_erro_atendimento(erro)
+    )
+
+    if codigo_http == 500:
+        logger.error(
+            "Erro nao classificado no atendimento "
+            "da loja %s: %s",
+            slug,
+            erro,
+        )
+
+    raise HTTPException(
+        status_code=codigo_http,
+        detail={
+            "sucesso": False,
+            "acao_executada": "pedido_nao_confirmado",
+            "mensagem": mensagem_erro,
+            "tempo_ms": tempo_ms,
+        },
+    )

@@ -479,7 +479,9 @@ def registrar_compra_segura(
     chave_idempotencia: str,
     mensagem_original: str | None = None,
     total_aprovado_centavos: int | None = None,
-    identificar_por_id: bool = False
+    identificar_por_id: bool = False,
+    *,
+    estabelecimento_id: int | None = None,
 ):
     """
     Registra uma compra V2 de maneira transacional.
@@ -507,6 +509,30 @@ def registrar_compra_segura(
     if len(chave) > 128:
         raise ValueError(
             "Chave de idempotencia muito longa."
+        )
+
+
+    # --------------------------------------------------------
+    # CONTEXTO DO ESTABELECIMENTO
+    # --------------------------------------------------------
+
+        # Compatibilidade temporaria com a Loja Inicial.
+    # Novas lojas devem informar o ID validado pelo backend.
+    if estabelecimento_id is None:
+        estabelecimento_id = 1
+
+    _validar_estabelecimento(
+        db,
+        estabelecimento_id,
+    )
+
+    def consulta_compra_da_loja():
+        return (
+            db.query(Compra)
+            .filter(
+                Compra.estabelecimento_id == estabelecimento_id,
+                Compra.chave_idempotencia == chave,
+            )
         )
 
     # --------------------------------------------------------
@@ -552,7 +578,7 @@ def registrar_compra_segura(
     # 1. NORMALIZAR E CONSOLIDAR ITENS
     # --------------------------------------------------------
 
-    
+
     normalizados = {}
 
     for item in itens:
@@ -687,13 +713,7 @@ def registrar_compra_segura(
     # 3. CONSULTAR COMPRA EXISTENTE
     # --------------------------------------------------------
 
-    existente = (
-        db.query(Compra)
-        .filter(
-            Compra.chave_idempotencia == chave
-        )
-        .first()
-    )
+    existente = consulta_compra_da_loja().first()
 
     if existente:
         return verificar_existente(existente)
@@ -709,7 +729,8 @@ def registrar_compra_segura(
             hash_solicitacao=hash_solicitacao,
             hash_mensagem=hash_mensagem,
             valor_total=0,
-            status="confirmado"
+            status="confirmado",
+            estabelecimento_id=estabelecimento_id,
         )
 
         db.add(compra)
@@ -721,12 +742,20 @@ def registrar_compra_segura(
         # 5. CONSULTAR PRODUTOS E ATUALIZAR ESTOQUE
         # ----------------------------------------------------
 
-        
+
         for identificador, qtd in sorted(normalizados.items()):
 
             # Portal do cliente: identificar pelo ID.
             if identificar_por_id:
-                produto = db.get(Produto, identificador)
+                produto = (
+                    db.query(Produto)
+                    .filter(
+                        Produto.id == identificador,
+                        Produto.estabelecimento_id
+                        == estabelecimento_id,
+                    )
+                    .first()
+                )
 
                 if produto is None:
                     raise ValueError(
@@ -738,8 +767,10 @@ def registrar_compra_segura(
                 produtos = (
                     db.query(Produto)
                     .filter(
+                        Produto.estabelecimento_id
+                        == estabelecimento_id,
                         func.lower(func.trim(Produto.nome))
-                        == identificador
+                        == identificador,
                     )
                     .all()
                 )
@@ -781,7 +812,9 @@ def registrar_compra_segura(
                 update(Produto)
                 .where(
                     Produto.id == produto.id,
-                    Produto.quantidade >= qtd
+                    Produto.estabelecimento_id
+                    == estabelecimento_id,
+                    Produto.quantidade >= qtd,
                 )
                 .values(
                     quantidade=(
@@ -846,13 +879,7 @@ def registrar_compra_segura(
         db.rollback()
 
         # Outra chamada pode ter registrado a mesma chave.
-        existente = (
-            db.query(Compra)
-            .filter(
-                Compra.chave_idempotencia == chave
-            )
-            .first()
-        )
+        existente = consulta_compra_da_loja().first()
 
         if existente:
             return verificar_existente(existente)
@@ -871,7 +898,9 @@ def registrar_compra_segura(
 def consultar_compra_por_mensagem(
     db: Session,
     chave_idempotencia: str,
-    mensagem_original: str
+    mensagem_original: str,
+    *,
+    estabelecimento_id: int | None = None,
 ) -> dict | None:
     """
     Consulta uma compra existente antes de executar a IA.
@@ -903,6 +932,16 @@ def consultar_compra_por_mensagem(
             "Mensagem original invalida."
         )
 
+    # Compatibilidade provisoria com a Loja Inicial.
+    # Novas lojas devem fornecer um contexto confiavel.
+    if estabelecimento_id is None:
+        estabelecimento_id = 1
+
+    _validar_estabelecimento(
+        db,
+        estabelecimento_id,
+    )
+
     hash_atual = hashlib.sha256(
         mensagem_original.encode("utf-8")
     ).hexdigest()
@@ -910,7 +949,8 @@ def consultar_compra_por_mensagem(
     compra = (
         db.query(Compra)
         .filter(
-            Compra.chave_idempotencia == chave
+            Compra.estabelecimento_id == estabelecimento_id,
+            Compra.chave_idempotencia == chave,
         )
         .first()
     )
@@ -954,3 +994,252 @@ def consultar_compra_por_mensagem(
         ),
         "requisicao_repetida": True
     }
+
+
+# ============================================================
+# CRUD MULTI-MEI - PRODUTOS E ESTOQUE
+# ============================================================
+
+def _validar_estabelecimento_id(estabelecimento_id: int) -> int:
+    """
+    Valida o identificador recebido de uma camada
+    de autenticacao ou contexto de loja confiavel.
+
+    Esta funcao nao autentica usuarios.
+    """
+
+    if (
+        type(estabelecimento_id) is not int
+        or estabelecimento_id < 1
+    ):
+        raise ValueError(
+            "Identificador do estabelecimento invalido."
+        )
+
+    return estabelecimento_id
+
+
+
+def listar_produtos_mei(
+    db: Session,
+    estabelecimento_id: int,
+):
+    _validar_estabelecimento(
+        db,
+        estabelecimento_id,
+    )
+
+    return (
+        db.query(Produto)
+        .filter(
+            Produto.estabelecimento_id == estabelecimento_id
+        )
+        .order_by(Produto.id)
+        .all()
+    )
+
+
+
+
+def buscar_produto_por_nome_mei(
+    db: Session,
+    estabelecimento_id: int,
+    nome: str,
+):
+    _validar_estabelecimento(
+        db,
+        estabelecimento_id,
+    )
+
+    nome = _validar_nome(
+        nome,
+        "Nome do produto",
+    )
+
+    return (
+        db.query(Produto)
+        .filter(
+            Produto.estabelecimento_id == estabelecimento_id,
+            Produto.nome.ilike(f"%{nome}%"),
+        )
+        .order_by(Produto.id)
+        .first()
+    )
+
+
+
+def atualizar_estoque_mei(
+    db: Session,
+    produto_id: int,
+    nova_quantidade: int,
+    estabelecimento_id: int,
+):
+    """
+    Atualiza o estoque somente quando o produto
+    pertence ao estabelecimento autorizado.
+
+    O filtro de estabelecimento faz parte da
+    operacao de escrita no banco.
+    """
+
+    estabelecimento_id = _validar_estabelecimento_id(
+        estabelecimento_id
+    )
+
+    if type(produto_id) is not int or produto_id < 1:
+        raise ValueError(
+            "Identificador do produto invalido."
+        )
+
+    if (
+        type(nova_quantidade) is not int
+        or nova_quantidade < 0
+    ):
+        raise ValueError(
+            "Estoque nao pode ser negativo."
+        )
+
+    try:
+        resultado = db.execute(
+            update(Produto)
+            .where(
+                Produto.id == produto_id,
+                Produto.estabelecimento_id == estabelecimento_id,
+            )
+            .values(
+                quantidade=nova_quantidade,
+                atualizado_em=datetime.now(),
+            )
+            .execution_options(synchronize_session=False)
+        )
+
+        if resultado.rowcount != 1:
+            db.rollback()
+            raise ValueError(
+                "Produto nao encontrado neste estabelecimento."
+            )
+
+        db.commit()
+
+        db.expire_all()
+
+        produto = (
+            db.query(Produto)
+            .filter(
+                Produto.id == produto_id,
+                Produto.estabelecimento_id == estabelecimento_id,
+            )
+            .first()
+        )
+
+        return produto
+
+    except Exception:
+        db.rollback()
+        raise
+
+
+
+
+# ============================================================
+# CADASTRO DE PRODUTOS - MULTI-MEI
+# ============================================================
+
+def criar_produto_mei(
+    db: Session,
+    estabelecimento_id: int,
+    nome: str,
+    preco: float,
+    quantidade: int,
+    descricao: str = "",
+    categoria: str = "",
+):
+    _validar_estabelecimento(db, estabelecimento_id)
+
+    nome = _validar_nome(nome, "Nome do produto")
+
+    if type(quantidade) is not int or quantidade < 0:
+        raise ValueError("Estoque inicial invalido.")
+
+    preco_validado = _valor_decimal(preco)
+
+    if preco_validado <= 0:
+        raise ValueError("Preco deve ser maior que zero.")
+
+    existente = (
+        db.query(Produto)
+        .filter(
+            Produto.estabelecimento_id == estabelecimento_id,
+            func.lower(func.trim(Produto.nome))
+            == nome.casefold(),
+        )
+        .first()
+    )
+
+    if existente is not None:
+        raise ValueError(
+            f"Produto '{nome}' ja cadastrado nesta loja."
+        )
+
+    produto = Produto(
+        estabelecimento_id=estabelecimento_id,
+        nome=nome,
+        preco=float(preco_validado),
+        quantidade=quantidade,
+        descricao=descricao,
+        categoria=categoria,
+    )
+
+    try:
+        db.add(produto)
+        db.commit()
+        db.refresh(produto)
+
+        return produto
+
+    except Exception:
+        db.rollback()
+        raise
+
+
+
+# ============================================================
+# VALIDACAO DE ESTABELECIMENTO - MULTI-MEI
+# ============================================================
+
+from database.contas_models import Estabelecimento
+
+
+def _validar_estabelecimento(
+    db: Session,
+    estabelecimento_id: int,
+):
+    """
+    Valida se o estabelecimento existe e esta ativo.
+
+    O estabelecimento_id deve ser obtido de uma sessao
+    autenticada ou de contexto validado pelo backend.
+    """
+
+    if (
+        type(estabelecimento_id) is not int
+        or estabelecimento_id < 1
+    ):
+        raise ValueError(
+            "Estabelecimento invalido."
+        )
+
+    estabelecimento = db.get(
+        Estabelecimento,
+        estabelecimento_id,
+    )
+
+    if (
+        estabelecimento is None
+        or not estabelecimento.ativo
+    ):
+        raise ValueError(
+            "Estabelecimento inexistente ou inativo."
+        )
+
+    return estabelecimento

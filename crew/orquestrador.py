@@ -21,9 +21,15 @@ from database import crud
 from schemas.pedido import PedidoMultiploCreate
 
 
+# ============================================================
+# ORQUESTRADOR DE ATENDIMENTO - MULTI-MEI
+# ============================================================
+
 def processar_pedido(
     mensagem_usuario: str,
-    chave_idempotencia: str
+    chave_idempotencia: str,
+    *,
+    estabelecimento_id: int = 1,
 ) -> dict:
 
     inicio = time.perf_counter()
@@ -31,9 +37,23 @@ def processar_pedido(
     resultado_compra = None
 
     def tempo_decorrido():
-        return int((time.perf_counter() - inicio) * 1000)
+        return int(
+            (time.perf_counter() - inicio) * 1000
+        )
 
     try:
+        # ====================================================
+        # ETAPA 0 - VALIDACAO DE ENTRADA
+        # ====================================================
+
+        if (
+            type(estabelecimento_id) is not int
+            or estabelecimento_id < 1
+        ):
+            raise ValueError(
+                "Identificador do estabelecimento invalido."
+            )
+
         if not isinstance(mensagem_usuario, str):
             raise ValueError("Mensagem invalida.")
 
@@ -41,23 +61,32 @@ def processar_pedido(
             raise ValueError("Mensagem vazia.")
 
         if not isinstance(chave_idempotencia, str):
-            raise ValueError("Chave de idempotencia invalida.")
+            raise ValueError(
+                "Chave de idempotencia invalida."
+            )
 
-        if not 1 <= len(chave_idempotencia.strip()) <= 128:
-            raise ValueError("Chave de idempotencia invalida.")
+        chave = chave_idempotencia.strip()
+
+        if not 1 <= len(chave) <= 128:
+            raise ValueError(
+                "Chave de idempotencia invalida."
+            )
 
         init_db()
 
         # ====================================================
-        # V2.2 - CONSULTA ANTECIPADA DE IDEMPOTENCIA
+        # ETAPA 1 - CONSULTA ANTECIPADA DE IDEMPOTENCIA
         # ====================================================
 
         db = SessionLocal()
 
-        compra_existente = crud.consultar_compra_por_mensagem(
-            db=db,
-            chave_idempotencia=chave_idempotencia.strip(),
-            mensagem_original=mensagem_usuario
+        compra_existente = (
+            crud.consultar_compra_por_mensagem(
+                db=db,
+                chave_idempotencia=chave,
+                mensagem_original=mensagem_usuario,
+                estabelecimento_id=estabelecimento_id,
+            )
         )
 
         if compra_existente is not None:
@@ -68,7 +97,7 @@ def processar_pedido(
                     f"Compra {compra_existente['compra_id']} "
                     "ja registrada anteriormente."
                 ),
-                "tempo_ms": tempo_decorrido()
+                "tempo_ms": tempo_decorrido(),
             }
 
         # Liberar a conexao antes de executar os agentes.
@@ -76,15 +105,18 @@ def processar_pedido(
         db = None
 
         # ====================================================
-        # ETAPA 1 - RECUPERACAO DE CONTEXTO
+        # ETAPA 2 - RECUPERACAO DE CONTEXTO RAG ISOLADO
         # ====================================================
 
-        contexto_rag = buscar_contexto(mensagem_usuario)
+        contexto_rag = buscar_contexto(
+            mensagem_usuario,
+            estabelecimento_id=estabelecimento_id,
+        )
 
         agente_triagem = criar_agente_triagem()
 
         # ====================================================
-        # ETAPA 2 - TRIAGEM
+        # ETAPA 3 - TRIAGEM
         # ====================================================
 
         tarefa_triagem = Task(
@@ -104,7 +136,7 @@ def processar_pedido(
             expected_output=(
                 "JSON com cliente_nome e lista de itens."
             ),
-            agent=agente_triagem
+            agent=agente_triagem,
         )
 
         crew_triagem = Crew(
@@ -112,7 +144,7 @@ def processar_pedido(
             tasks=[tarefa_triagem],
             process=Process.sequential,
             verbose=True,
-            cache=False
+            cache=False,
         )
 
         saida = crew_triagem.kickoff()
@@ -120,15 +152,18 @@ def processar_pedido(
 
         try:
             dados = json.loads(texto_triagem)
+
         except json.JSONDecodeError as exc:
             raise ValueError(
                 "Triagem retornou JSON invalido."
             ) from exc
 
-        pedido = PedidoMultiploCreate.model_validate(dados)
+        pedido = PedidoMultiploCreate.model_validate(
+            dados
+        )
 
         # ====================================================
-        # ETAPA 3 - INVENTARIO CONSULTIVO
+        # ETAPA 4 - INVENTARIO CONSULTIVO
         # ====================================================
 
         agente_inventario = criar_agente_inventario()
@@ -138,6 +173,8 @@ def processar_pedido(
                 "Analise o pedido estruturado:\n"
                 f"{pedido.model_dump_json()}\n\n"
                 f"Contexto do negocio:\n{contexto_rag}\n\n"
+                "Este atendimento pertence exclusivamente "
+                f"ao estabelecimento ID {estabelecimento_id}. "
                 "Identifique possiveis inconsistencias. "
                 "Nao confirme estoque nem invente precos. "
                 "O banco SQLite fara a verificacao definitiva."
@@ -145,7 +182,7 @@ def processar_pedido(
             expected_output=(
                 "Analise consultiva das informacoes do pedido."
             ),
-            agent=agente_inventario
+            agent=agente_inventario,
         )
 
         crew_inventario = Crew(
@@ -153,13 +190,13 @@ def processar_pedido(
             tasks=[tarefa_inventario],
             process=Process.sequential,
             verbose=True,
-            cache=False
+            cache=False,
         )
 
         crew_inventario.kickoff()
 
         # ====================================================
-        # ETAPA 4 - PERSISTENCIA REAL DA COMPRA V2
+        # ETAPA 5 - PERSISTENCIA REAL DA COMPRA MULTI-MEI
         # ====================================================
 
         db = SessionLocal()
@@ -171,15 +208,16 @@ def processar_pedido(
                 item.model_dump()
                 for item in pedido.itens
             ],
-            chave_idempotencia=chave_idempotencia.strip(),
-            mensagem_original=mensagem_usuario
+            chave_idempotencia=chave,
+            mensagem_original=mensagem_usuario,
+            estabelecimento_id=estabelecimento_id,
         )
 
         # O CRUD retorna somente apos o commit.
-        # A partir daqui a compra ja esta persistida.
+        # A compra ja esta persistida neste ponto.
 
         # ====================================================
-        # ETAPA 5 - CONFIRMACAO AO CLIENTE
+        # ETAPA 6 - CONFIRMACAO AO CLIENTE
         # ====================================================
 
         resumo = (
@@ -206,7 +244,7 @@ def processar_pedido(
                     expected_output=(
                         "Mensagem curta em portugues."
                     ),
-                    agent=agente_escrita
+                    agent=agente_escrita,
                 )
 
                 crew_escrita = Crew(
@@ -214,12 +252,12 @@ def processar_pedido(
                     tasks=[tarefa_escrita],
                     process=Process.sequential,
                     verbose=True,
-                    cache=False
+                    cache=False,
                 )
 
                 crew_escrita.kickoff()
 
-                # Mantemos como resposta oficial o resumo
+                # A resposta oficial continua sendo o resumo
                 # deterministico produzido com dados do banco.
 
             except Exception:
@@ -227,7 +265,7 @@ def processar_pedido(
                 pass
 
         # ====================================================
-        # ETAPA 6 - LOG
+        # ETAPA 7 - REGISTRO DE LOG
         # ====================================================
 
         try:
@@ -241,11 +279,12 @@ def processar_pedido(
                 entrada=mensagem_usuario,
                 resposta=json.dumps(
                     resultado_compra,
-                    ensure_ascii=False
+                    ensure_ascii=False,
                 ),
                 tempo_ms=tempo_decorrido(),
-                sucesso="sim"
+                sucesso="sim",
             )
+
         except Exception:
             db.rollback()
 
@@ -253,7 +292,7 @@ def processar_pedido(
             "sucesso": True,
             "resultado": resultado_compra,
             "resposta": resumo,
-            "tempo_ms": tempo_decorrido()
+            "tempo_ms": tempo_decorrido(),
         }
 
     except Exception as erro:
@@ -267,13 +306,13 @@ def processar_pedido(
                 "sucesso": True,
                 "resultado": resultado_compra,
                 "resposta": "Compra registrada com sucesso.",
-                "tempo_ms": tempo_decorrido()
+                "tempo_ms": tempo_decorrido(),
             }
 
         return {
             "sucesso": False,
             "erro": str(erro),
-            "tempo_ms": tempo_decorrido()
+            "tempo_ms": tempo_decorrido(),
         }
 
     finally:

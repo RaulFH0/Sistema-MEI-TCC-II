@@ -6,6 +6,7 @@ import AtendimentoIA from './components/AtendimentoIA'
 import HistoricoCompras from './components/HistoricoCompras'
 import GerenciarProdutos from './components/GerenciarProdutos'
 import LoginAdmin from './components/LoginAdmin'
+import LojaCliente from './components/LojaCliente'
 
 import {
   consultarSessao,
@@ -55,7 +56,7 @@ function situacaoEstoque(produto: Produto): SituacaoEstoque {
 // COMPONENTE PRINCIPAL
 // ============================================================
 
-function App() {
+function PainelAdmin() {
   // ----------------------------------------------------------
   // NAVEGACAO
   // ----------------------------------------------------------
@@ -691,5 +692,139 @@ function App() {
     </div>
   )
 }
+
+
+/* ============================================================
+   NAVEGACAO PUBLICA MULTI-MEI
+   ============================================================ */
+
+
+function App() {
+  // ============================================================
+  // IDENTIFICACAO DO CAMINHO
+  // ============================================================
+
+  // pathname nao inclui parametros como ?utm_source=...
+  // Remove barras extras no final do endereco.
+  const caminho =
+    window.location.pathname.replace(/\/+$/, '') || '/'
+
+  const partes = caminho
+    .split('/')
+    .filter(Boolean)
+
+  // ============================================================
+  // PAINEL ADMINISTRATIVO
+  // ============================================================
+
+  if (caminho === '/') {
+    return <PainelAdmin />
+  }
+
+  // ============================================================
+  // PORTAL PUBLICO MULTI-MEI
+  // ============================================================
+
+  if (partes[0] === 'lojas') {
+    const slug = partes[1] ?? ''
+
+    // Identificador publico da loja.
+    const slugValido =
+      /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)
+
+    const paginaCatalogo =
+      partes.length === 2
+
+    const paginaAtendimento =
+      partes.length === 3 &&
+      partes[2] === 'atendimento'
+
+    // Enderecos desconhecidos nao devem
+    // carregar automaticamente outra loja.
+    if (
+      !slugValido ||
+      (!paginaCatalogo && !paginaAtendimento)
+    ) {
+      return (
+        <main style={{ padding: 32 }}>
+          <h1>Página não encontrada</h1>
+          <p>Verifique o endereço da loja.</p>
+        </main>
+      )
+    }
+
+    const enderecoLoja =
+      `/lojas/${encodeURIComponent(slug)}`
+
+    // ==========================================================
+    // NAVEGACAO DO CLIENTE
+    // ==========================================================
+
+    return (
+      <div>
+        <nav
+          aria-label="Navegação da loja"
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 16,
+            alignItems: 'center',
+            padding: '14px 24px',
+            background: '#ffffff',
+            borderBottom: '1px solid #e5e7eb',
+          }}
+        >
+          <strong>Sistema MEI</strong>
+
+          <a
+            href={enderecoLoja}
+            aria-current={
+              paginaCatalogo ? 'page' : undefined
+            }
+          >
+            Produtos e compras
+          </a>
+
+          <a
+            href={`${enderecoLoja}/atendimento`}
+            aria-current={
+              paginaAtendimento ? 'page' : undefined
+            }
+          >
+            Atendimento com IA
+          </a>
+        </nav>
+
+        {/* ======================================================
+            PAGINAS PUBLICAS ISOLADAS POR ESTABELECIMENTO
+        ====================================================== */}
+
+        {paginaAtendimento ? (
+          <AtendimentoIA
+            key={`atendimento:${slug}`}
+            slug={slug}
+          />
+        ) : (
+          <LojaCliente
+            key={`catalogo:${slug}`}
+            slug={slug}
+          />
+        )}
+      </div>
+    )
+  }
+
+  // ============================================================
+  // ENDERECO DESCONHECIDO
+  // ============================================================
+
+  return (
+    <main style={{ padding: 32 }}>
+      <h1>Página não encontrada</h1>
+      <p>Verifique o endereço informado.</p>
+    </main>
+  )
+}
+
 
 export default App

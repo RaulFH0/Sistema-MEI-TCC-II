@@ -4,8 +4,11 @@ import type { FormEvent } from 'react'
 
 import {
   listarProdutos,
+  listarProdutosLoja,
   gerarOrcamentoLoja,
+  gerarOrcamentoLojaMei,
   confirmarPedidoLoja,
+  confirmarPedidoLojaMei,
   ApiError,
   type Produto,
   type OrcamentoLoja,
@@ -17,15 +20,30 @@ import './LojaCliente.css'
 
 const CHAVE_PENDENTE = 'sistema-mei-loja-pedido-pendente-v1'
 
+
+type LojaClienteProps = {
+  slug?: string
+}
+
+function chavePendentePorLoja(slug?: string): string {
+  return slug
+    ? `sistema-mei-loja-pedido-pendente-v2:${slug}`
+    : CHAVE_PENDENTE
+}
+
+
 const moeda = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
   currency: 'BRL',
 })
 
+
 type TentativaPendente = {
   chave: string
   solicitacao: SolicitacaoConfirmacaoLoja
+  lojaSlug?: string
 }
+
 
 type SituacaoFalha = 'incerta' | 'rejeitada' | null
 
@@ -33,9 +51,12 @@ function formatarCentavos(valor: number) {
   return moeda.format(valor / 100)
 }
 
-function lerTentativaPendente(): TentativaPendente | null {
+function lerTentativaPendente(
+  chaveArmazenamento: string,
+  slug?: string
+): TentativaPendente | null {
   try {
-    const salvo = sessionStorage.getItem(CHAVE_PENDENTE)
+    const salvo = sessionStorage.getItem(chaveArmazenamento)
 
     if (!salvo) return null
 
@@ -78,13 +99,24 @@ function lerTentativaPendente(): TentativaPendente | null {
       return null
     }
 
+    if (
+      slug
+        ? !('lojaSlug' in valor) || valor.lojaSlug !== slug
+        : 'lojaSlug' in valor
+    ) {
+      return null
+    }
+
     return valor as TentativaPendente
   } catch {
     return null
   }
 }
 
-export default function LojaCliente() {
+export default function LojaCliente({
+  slug,
+}: LojaClienteProps) {
+  const chavePendente = chavePendentePorLoja(slug)
   const [produtos, setProdutos] = useState<Produto[]>([])
   const [quantidades, setQuantidades] =
     useState<Record<number, number>>({})
@@ -103,7 +135,7 @@ export default function LojaCliente() {
   const [orcamento, setOrcamento] = useState<OrcamentoLoja | null>(null)
 
   const [pendente, setPendente] = useState<TentativaPendente | null>(
-    lerTentativaPendente
+    () => lerTentativaPendente(chavePendente, slug)
   )
 
   const [situacaoFalha, setSituacaoFalha] =
@@ -127,7 +159,9 @@ export default function LojaCliente() {
 
     async function carregar() {
       try {
-        const dados = await listarProdutos()
+        const dados = slug
+          ? await listarProdutosLoja(slug)
+          : await listarProdutos()
 
         if (ativo) {
           setProdutos(dados)
@@ -153,7 +187,7 @@ export default function LojaCliente() {
     return () => {
       ativo = false
     }
-  }, [])
+  }, [slug])
 
   // ============================================================
   // CATALOGO E CARRINHO
@@ -245,13 +279,14 @@ export default function LojaCliente() {
     setOrcamento(null)
 
     try {
-      const resultado = await gerarOrcamentoLoja(
-        nome,
-        carrinho.map(({ produto, quantidade }) => ({
-          produto_id: produto.id,
-          quantidade,
-        }))
-      )
+      const itens = carrinho.map(({ produto, quantidade }) => ({
+        produto_id: produto.id,
+        quantidade,
+      }))
+
+      const resultado = slug
+        ? await gerarOrcamentoLojaMei(slug, nome, itens)
+        : await gerarOrcamentoLoja(nome, itens)
 
       if (revisao !== revisaoRef.current) return
 
@@ -277,6 +312,17 @@ export default function LojaCliente() {
   async function enviarConfirmacao(tentativa: TentativaPendente) {
     if (confirmandoRef.current) return
 
+    if (
+      slug
+        ? tentativa.lojaSlug !== slug
+        : tentativa.lojaSlug !== undefined
+    ) {
+      setErroConfirmacao(
+        'Esta tentativa pertence a outro estabelecimento.'
+      )
+      return
+    }
+
     confirmandoRef.current = true
 
     setConfirmando(true)
@@ -284,15 +330,21 @@ export default function LojaCliente() {
     setSituacaoFalha(null)
 
     try {
-      const resposta = await confirmarPedidoLoja(
-        tentativa.solicitacao,
-        tentativa.chave
-      )
+      const resposta = slug
+        ? await confirmarPedidoLojaMei(
+            slug,
+            tentativa.solicitacao,
+            tentativa.chave
+          )
+        : await confirmarPedidoLoja(
+            tentativa.solicitacao,
+            tentativa.chave
+          )
 
       setConfirmacao(resposta)
       setPendente(null)
 
-      sessionStorage.removeItem(CHAVE_PENDENTE)
+      sessionStorage.removeItem(chavePendente)
     } catch (falha) {
       const rejeicaoDefinitiva =
         falha instanceof ApiError &&
@@ -348,12 +400,13 @@ export default function LojaCliente() {
     const tentativa: TentativaPendente = {
       chave: crypto.randomUUID(),
       solicitacao,
+      ...(slug ? { lojaSlug: slug } : {}),
     }
 
     try {
       // Guardar antes de enviar ao backend.
       sessionStorage.setItem(
-        CHAVE_PENDENTE,
+        chavePendente,
         JSON.stringify(tentativa)
       )
     } catch {
@@ -390,7 +443,7 @@ export default function LojaCliente() {
 
     if (!autorizado) return
 
-    sessionStorage.removeItem(CHAVE_PENDENTE)
+    sessionStorage.removeItem(chavePendente)
 
     setPendente(null)
     setSituacaoFalha(null)
