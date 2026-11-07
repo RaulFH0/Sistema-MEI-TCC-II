@@ -6,7 +6,9 @@ import AtendimentoIA from './components/AtendimentoIA'
 import HistoricoCompras from './components/HistoricoCompras'
 import GerenciarProdutos from './components/GerenciarProdutos'
 import LoginAdmin from './components/LoginAdmin'
+import SolicitacoesMEIAdmin from './components/SolicitacoesMEIAdmin'
 import LojaCliente from './components/LojaCliente'
+import PainelMEI from './components/PainelMEI'
 
 import {
   consultarSessao,
@@ -719,6 +721,14 @@ function App() {
 
   if (caminho === '/') {
     return <PainelAdmin />
+  }
+
+  if (caminho === '/admin/solicitacoes-mei') {
+    return <SolicitacoesMEIAdmin />
+  }
+
+  if (caminho === '/mei') {
+    return <PainelMEI />
   }
 
   // ============================================================

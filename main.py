@@ -26,6 +26,8 @@ from security.mei_produtos_routes import (
 
 from security.routes import router as auth_router
 from security.mei_routes import router as mei_router
+from security.cadastro_mei_routes import router as cadastro_mei_router
+from security.cadastro_mei_admin_routes import router as cadastro_mei_admin_router
 from security.routes import (
     exigir_admin,
     exigir_admin_escrita
@@ -85,6 +87,8 @@ app = FastAPI(
 
 app.include_router(auth_router)
 app.include_router(mei_router)
+app.include_router(cadastro_mei_router)
+app.include_router(cadastro_mei_admin_router)
 app.include_router(mei_produtos_router)
 app.include_router(lojas_publicas_router)
 
