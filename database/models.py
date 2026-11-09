@@ -294,6 +294,7 @@ class SessaoAdmin(Base):
 
 
 import database.contas_models  # Registra Estabelecimento e UsuarioMEI no metadata
+import database.solicitacoes_models  # Registra SolicitacaoCadastroMEI no metadata
 
 def init_db():
     Base.metadata.create_all(bind=engine)

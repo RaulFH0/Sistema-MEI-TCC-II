@@ -104,3 +104,13 @@ Index(
     unique=True,
     sqlite_where=text("status = 'pendente'"),
 )
+
+
+# Garante que um CNPJ possua no maximo
+# uma solicitacao aprovada.
+Index(
+    "uq_solicitacao_mei_cnpj_aprovado",
+    SolicitacaoCadastroMEI.__table__.c.cnpj,
+    unique=True,
+    sqlite_where=text("status = 'aprovado'"),
+)

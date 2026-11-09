@@ -1,6 +1,6 @@
 import re
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field, SecretStr
 from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
@@ -10,6 +10,7 @@ from database.models import get_db
 from database.contas_models import UsuarioMEI
 from database.solicitacoes_models import SolicitacaoCadastroMEI
 from security.auth import gerar_hash_senha
+from security.limite_cadastro import limitador_cadastro
 
 
 router = APIRouter(
@@ -61,10 +62,35 @@ def cnpj_valido(cnpj: str) -> bool:
     )
 
 
+
+
+def verificar_limite_cadastro(request: Request) -> None:
+    # Utiliza o IP da conexao, nao cabecalhos
+    # X-Forwarded-For enviados pelo cliente.
+    ip = (
+        request.client.host
+        if request.client is not None
+        else "origem-desconhecida"
+    )
+
+    espera = limitador_cadastro.consumir(ip)
+
+    if espera is not None:
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                "Muitas tentativas de cadastro. "
+                "Tente novamente mais tarde."
+            ),
+            headers={"Retry-After": str(espera)},
+        )
+
+
 @router.post("/solicitar", status_code=status.HTTP_202_ACCEPTED)
 def solicitar_cadastro_mei(
     entrada: SolicitacaoEntrada,
     db: Session = Depends(get_db),
+    _: None = Depends(verificar_limite_cadastro),
 ):
     nome = entrada.nome_completo.strip()
     email = entrada.email.strip().lower()

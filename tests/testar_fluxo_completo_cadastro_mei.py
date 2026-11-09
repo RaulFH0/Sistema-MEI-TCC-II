@@ -5,6 +5,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from main import app
+import security.cadastro_mei_routes as cadastro_routes
+from security.limite_cadastro import LimitadorCadastro
 from database.models import Base, get_db
 from database.contas_models import Estabelecimento, UsuarioMEI
 from database.solicitacoes_models import SolicitacaoCadastroMEI
@@ -22,7 +24,16 @@ DADOS = {
 
 
 @pytest.fixture
-def ambiente():
+def ambiente(monkeypatch):
+    # Contador novo para cada teste, sem desligar a protecao.
+    monkeypatch.setattr(
+        cadastro_routes,
+        "limitador_cadastro",
+        LimitadorCadastro(
+            limite=5,
+            janela_segundos=900,
+        ),
+    )
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},

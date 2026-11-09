@@ -10,6 +10,8 @@ from database.contas_models import Estabelecimento, UsuarioMEI
 from database.solicitacoes_models import SolicitacaoCadastroMEI
 from security.auth import verificar_senha
 from main import app
+import security.cadastro_mei_routes as cadastro_routes
+from security.limite_cadastro import LimitadorCadastro
 
 
 DADOS_VALIDOS = {
@@ -23,7 +25,16 @@ DADOS_VALIDOS = {
 
 
 @pytest.fixture
-def ambiente_cadastro():
+def ambiente_cadastro(monkeypatch):
+    # Contador novo para cada teste, sem desligar a protecao.
+    monkeypatch.setattr(
+        cadastro_routes,
+        "limitador_cadastro",
+        LimitadorCadastro(
+            limite=5,
+            janela_segundos=900,
+        ),
+    )
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},

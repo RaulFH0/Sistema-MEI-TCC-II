@@ -1,0 +1,134 @@
+
+/* SISTEMA MEI - SOLICITACOES ADMINISTRATIVAS */
+
+.solicitacoes-admin {
+  --mei-azul: #13243b;
+  --mei-verde: #159a76;
+  --mei-borda: #e2e8f0;
+
+  font-family: inherit;
+  color: var(--mei-azul);
+  background: #f5f7fb;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.solicitacoes-admin *,
+.solicitacoes-admin *::before,
+.solicitacoes-admin *::after {
+  box-sizing: border-box;
+}
+
+.solicitacoes-admin h1 {
+  color: var(--mei-azul);
+  font-size: clamp(1.7rem, 3vw, 2.2rem);
+  font-weight: 750;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+  margin-bottom: 12px;
+}
+
+.solicitacoes-admin h2 {
+  color: var(--mei-azul);
+  font-size: 1.2rem;
+}
+
+.solicitacoes-admin p {
+  line-height: 1.6;
+}
+
+.solicitacoes-admin nav {
+  margin-bottom: 24px;
+}
+
+.solicitacoes-admin nav a {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 16px;
+  border: 1px solid var(--mei-borda);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--mei-azul);
+  text-decoration: none;
+  font-weight: 600;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.solicitacoes-admin nav a:hover {
+  background: #edf7f3;
+  border-color: var(--mei-verde);
+}
+
+.solicitacoes-admin select {
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  background: #fff;
+  color: var(--mei-azul);
+  font: inherit;
+  cursor: pointer;
+}
+
+.solicitacoes-admin button {
+  min-height: 42px;
+  padding: 9px 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  background: #fff;
+  color: var(--mei-azul);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.solicitacoes-admin button:hover:not(:disabled) {
+  background: #edf7f3;
+  border-color: var(--mei-verde);
+}
+
+.solicitacoes-admin button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.solicitacoes-admin :is(button, select, a):focus-visible {
+  outline: 3px solid #23b58c;
+  outline-offset: 3px;
+}
+
+.solicitacoes-admin [role="alert"] {
+  padding: 14px 16px;
+  background: #fff0ec;
+  color: #9f3434;
+  border: 1px solid #f7c9c9;
+  border-radius: 10px;
+}
+
+@media (max-width: 640px) {
+  .solicitacoes-admin {
+    padding: 20px 16px !important;
+  }
+
+  .solicitacoes-admin h1 {
+    font-size: 1.65rem;
+  }
+
+  .solicitacoes-admin button,
+  .solicitacoes-admin select {
+    max-width: 100%;
+  }
+}
+
+
+/* ESTADO VAZIO DAS SOLICITACOES */
+.solicitacoes-admin .solicitacoes-vazio {
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 14px;
+  padding: 32px 24px;
+  text-align: center;
+  color: #64748b;
+  margin-top: 24px;
+}

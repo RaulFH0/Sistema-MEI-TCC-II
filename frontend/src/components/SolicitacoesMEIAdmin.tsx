@@ -1,3 +1,4 @@
+import "./SolicitacoesMEIAdmin.css"
 import { useCallback, useEffect, useState } from 'react'
 import LoginAdmin from './LoginAdmin'
 import {
@@ -238,7 +239,7 @@ export default function SolicitacoesMEIAdmin() {
   }
 
   return (
-    <main style={{
+    <main className="solicitacoes-admin" style={{
       maxWidth: 1100,
       margin: '0 auto',
       padding: 24,
@@ -247,7 +248,7 @@ export default function SolicitacoesMEIAdmin() {
         <a href="/">Voltar ao painel administrativo</a>
       </nav>
 
-      <h1>Solicitacoes de cadastro MEI</h1>
+      <h1>Solicita??es de cadastro MEI</h1>
       <p>
         Analise os pedidos antes de autorizar o acesso
         de novos empreendedores a plataforma.
@@ -260,7 +261,7 @@ export default function SolicitacoesMEIAdmin() {
         alignItems: 'center',
         margin: '24px 0',
       }}>
-        <label htmlFor="filtro-cadastro">Situacao:</label>
+        <label htmlFor="filtro-cadastro">Situa??o:</label>
 
         <select
           id="filtro-cadastro"
@@ -292,7 +293,7 @@ export default function SolicitacoesMEIAdmin() {
       {carregando ? (
         <p>Carregando solicitacoes...</p>
       ) : solicitacoes.length === 0 ? (
-        <p>Nenhuma solicitacao encontrada neste filtro.</p>
+        <p className="solicitacoes-vazio">Nenhuma solicita??o encontrada neste filtro.</p>
       ) : (
         <div style={{
           display: 'grid',

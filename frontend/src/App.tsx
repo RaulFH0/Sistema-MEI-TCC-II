@@ -330,7 +330,17 @@ function PainelAdmin() {
           >
             ▤ Histórico de compras
           </button>
-        </nav>
+
+          <button
+            type="button"
+            className="nav-item"
+            onClick={() => {
+              window.location.href = '/admin/solicitacoes-mei'
+            }}
+          >
+            Solicitações de MEIs
+          </button>
+</nav>
 
         {/* ---------------------------------------------------
             USUARIO AUTENTICADO E LOGOUT
