@@ -288,8 +288,8 @@ export default function AtendimentoIA({
             <h2>Como posso ajudar?</h2>
 
             <p>
-              Informe seu nome, os produtos e as
-              quantidades desejadas.
+              Consulte produtos e precos da loja ou
+              informe seu nome e o que deseja comprar.
             </p>
 
             <p className="chat-exemplo">
@@ -341,9 +341,11 @@ export default function AtendimentoIA({
             <div className="chat-linha assistente">
               <div className="chat-balao assistente">
                 <strong>
-                  {compra?.requisicao_repetida
-                    ? 'Compra recuperada'
-                    : 'Compra confirmada'}
+                  {resultado.acao_executada === 'consulta_catalogo'
+                    ? 'Consulta realizada'
+                    : compra?.requisicao_repetida
+                      ? 'Compra recuperada'
+                      : 'Compra confirmada'}
                 </strong>
 
                 <p>{resultado.resposta}</p>
@@ -396,7 +398,9 @@ export default function AtendimentoIA({
                   type="button"
                   onClick={iniciarNovoAtendimento}
                 >
-                  Novo atendimento
+                  {resultado.acao_executada === 'consulta_catalogo'
+                    ? 'Fazer outra pergunta'
+                    : 'Novo atendimento'}
                 </button>
               </div>
             </div>
@@ -457,12 +461,12 @@ export default function AtendimentoIA({
           onSubmit={enviar}
         >
           <label htmlFor="mensagem-pedido">
-            Mensagem do pedido
+            Sua mensagem
           </label>
 
           <textarea
             id="mensagem-pedido"
-            placeholder="Ex.: Sou Ana e quero 2 Arroz e 1 Feijao..."
+            placeholder="Ex.: Quais produtos estao disponiveis?"
             value={mensagem}
             onChange={(evento) =>
               setMensagem(evento.target.value)
@@ -489,7 +493,7 @@ export default function AtendimentoIA({
             >
               {enviando
                 ? 'Processando...'
-                : 'Enviar pedido'}
+                : 'Enviar mensagem'}
             </button>
           </div>
         </form>

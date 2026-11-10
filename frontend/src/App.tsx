@@ -8,6 +8,7 @@ import GerenciarProdutos from './components/GerenciarProdutos'
 import LoginAdmin from './components/LoginAdmin'
 import SolicitacoesMEIAdmin from './components/SolicitacoesMEIAdmin'
 import LojaCliente from './components/LojaCliente'
+import ChatbotFlutuante from './components/ChatbotFlutuante'
 import PainelMEI from './components/PainelMEI'
 
 import {
@@ -773,8 +774,6 @@ function App() {
       )
     }
 
-    const enderecoLoja =
-      `/lojas/${encodeURIComponent(slug)}`
 
     // ==========================================================
     // NAVEGACAO DO CLIENTE
@@ -782,38 +781,6 @@ function App() {
 
     return (
       <div>
-        <nav
-          aria-label="Navegação da loja"
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 16,
-            alignItems: 'center',
-            padding: '14px 24px',
-            background: '#ffffff',
-            borderBottom: '1px solid #e5e7eb',
-          }}
-        >
-          <strong>Sistema MEI</strong>
-
-          <a
-            href={enderecoLoja}
-            aria-current={
-              paginaCatalogo ? 'page' : undefined
-            }
-          >
-            Produtos e compras
-          </a>
-
-          <a
-            href={`${enderecoLoja}/atendimento`}
-            aria-current={
-              paginaAtendimento ? 'page' : undefined
-            }
-          >
-            Atendimento com IA
-          </a>
-        </nav>
 
         {/* ======================================================
             PAGINAS PUBLICAS ISOLADAS POR ESTABELECIMENTO
@@ -825,10 +792,16 @@ function App() {
             slug={slug}
           />
         ) : (
-          <LojaCliente
-            key={`catalogo:${slug}`}
-            slug={slug}
-          />
+          <>
+            <LojaCliente
+              key={`catalogo:${slug}`}
+              slug={slug}
+            />
+            <ChatbotFlutuante
+              key={`chatbot:${slug}`}
+              slug={slug}
+            />
+          </>
         )}
       </div>
     )

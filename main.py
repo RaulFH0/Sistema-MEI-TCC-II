@@ -52,6 +52,7 @@ from schemas.pedido import (
 
 from rag.loader import carregar_base_conhecimento
 from crew.orquestrador import processar_pedido
+from security.consulta_catalogo_ia import consultar_catalogo
 
 
 # ============================================================
@@ -720,6 +721,17 @@ def atender_cliente_mei(
     # O cliente informa o slug, nunca o ID interno.
     loja = _resolver_loja(db, slug)
     estabelecimento_id = loja.id
+
+    # Consultas explicitamente informativas:
+    # nao executar o fluxo de compra.
+    consulta = consultar_catalogo(
+        db,
+        estabelecimento_id,
+        entrada.mensagem,
+    )
+
+    if consulta is not None:
+        return RespostaAgente(**consulta)
 
     try:
         resultado = processar_pedido(

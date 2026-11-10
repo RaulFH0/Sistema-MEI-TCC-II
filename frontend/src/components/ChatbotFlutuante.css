@@ -1,0 +1,192 @@
+.chatbot-flutuante {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 1000;
+  font-family: Inter, system-ui, Arial, sans-serif;
+}
+
+.chatbot-flutuante-botao {
+  display: grid;
+  place-items: center;
+  width: 62px;
+  height: 62px;
+  margin-left: auto;
+  border: 0;
+  border-radius: 50%;
+  background: #13243b;
+  color: white;
+  box-shadow: 0 8px 28px rgba(19, 36, 59, .28);
+  cursor: pointer;
+  font-size: 30px;
+}
+
+.chatbot-flutuante-botao:hover {
+  background: #27435c;
+}
+
+.chatbot-flutuante-botao:focus-visible,
+.chatbot-flutuante-fechar:focus-visible {
+  outline: 3px solid #23b58c;
+  outline-offset: 3px;
+}
+
+.chatbot-flutuante-janela {
+  display: flex;
+  flex-direction: column;
+  width: min(420px, calc(100vw - 24px));
+  height: min(640px, calc(100dvh - 105px));
+  margin-bottom: 14px;
+  overflow: hidden;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  box-shadow: 0 14px 45px rgba(19, 36, 59, .22);
+}
+
+.chatbot-flutuante-janela[hidden] {
+  display: none;
+}
+
+.chatbot-flutuante-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  color: white;
+  background: #13243b;
+}
+
+.chatbot-flutuante-marca {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chatbot-flutuante-marca strong,
+.chatbot-flutuante-marca small {
+  display: block;
+}
+
+.chatbot-flutuante-marca small {
+  margin-top: 3px;
+  color: #cbd5e1;
+  font-size: 12px;
+}
+
+.chatbot-flutuante-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #23b58c;
+  color: #13243b;
+  font-weight: 800;
+}
+
+.chatbot-flutuante-fechar {
+  border: 0;
+  background: transparent;
+  color: white;
+  font-size: 26px;
+  cursor: pointer;
+}
+
+.chatbot-flutuante-corpo {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.chatbot-flutuante .atendimento,
+.chatbot-flutuante .chat-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.chatbot-flutuante .atendimento-header {
+  display: none;
+}
+
+.chatbot-flutuante .chat-container {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.chatbot-flutuante .chat-conteudo {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.chatbot-flutuante .chat-formulario {
+  flex-shrink: 0;
+  padding: 12px;
+}
+
+.chatbot-flutuante .chat-balao {
+  padding: 12px;
+}
+
+.chatbot-flutuante .chat-acoes {
+  gap: 8px;
+}
+
+@media (max-width: 650px) {
+  .chatbot-flutuante {
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .chatbot-flutuante-janela {
+    width: calc(100vw - 24px);
+    height: min(720px, calc(100dvh - 90px));
+  }
+
+  .chatbot-flutuante-botao {
+    width: 56px;
+    height: 56px;
+  }
+}
+
+
+/* Preservar linhas nas respostas informativas da IA. */
+.chatbot-flutuante .chat-balao.assistente > p {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+
+/* Acabamento do chatbot publico */
+.chatbot-flutuante .chat-acoes button {
+  background: #13243b;
+  color: #ffffff;
+  border-radius: 10px;
+  font-weight: 650;
+}
+
+.chatbot-flutuante .chat-acoes button:hover:not(:disabled) {
+  background: #27435c;
+}
+
+.chatbot-flutuante .chat-acoes button:focus-visible {
+  outline: 3px solid rgba(35, 181, 140, .5);
+  outline-offset: 2px;
+}
+
+.chatbot-flutuante .chat-formulario textarea {
+  font-family: Inter, system-ui, Arial, sans-serif;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.chatbot-flutuante .chat-balao.assistente > p {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
