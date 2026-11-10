@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import LoginMEI from './LoginMEI'
+import MinhasVendasMEI from './MinhasVendasMEI'
 import {
   consultarSessaoMei,
   limparSessaoMei,
@@ -26,6 +27,7 @@ function mensagemErro(falha: unknown): string {
 
 export default function PainelMEI() {
   const [sessao, setSessao] = useState<SessaoMEI | null>(null)
+  const [aba, setAba] = useState<'produtos' | 'vendas'>('produtos')
   const [verificando, setVerificando] = useState(true)
   const [produtos, setProdutos] = useState<ProdutoMEI[]>([])
   const [carregando, setCarregando] = useState(false)
@@ -265,6 +267,31 @@ export default function PainelMEI() {
       {erro && <p role="alert">{erro}</p>}
       {sucesso && <p role="status">{sucesso}</p>}
 
+      <nav aria-label="Navegacao do painel MEI" style={{
+        display: 'flex',
+        gap: 12,
+        flexWrap: 'wrap',
+        marginTop: 24,
+      }}>
+        <button
+          type="button"
+          aria-pressed={aba === 'produtos'}
+          onClick={() => setAba('produtos')}
+        >
+          Produtos e estoque
+        </button>
+        <button
+          type="button"
+          aria-pressed={aba === 'vendas'}
+          onClick={() => setAba('vendas')}
+        >
+          Minhas vendas
+        </button>
+      </nav>
+
+
+      {aba === 'produtos' ? (
+        <>
       <section style={{ marginTop: 32 }}>
         <h2>Cadastrar produto</h2>
 
@@ -419,6 +446,10 @@ export default function PainelMEI() {
           </div>
         )}
       </section>
+        </>
+      ) : (
+        <MinhasVendasMEI />
+      )}
     </main>
   )
 }

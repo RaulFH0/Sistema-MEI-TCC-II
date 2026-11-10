@@ -24,6 +24,7 @@ from security.mei_produtos_routes import (
     router as mei_produtos_router,
 )
 
+from security.mei_compras_routes import router as mei_compras_router
 from security.routes import router as auth_router
 from security.mei_routes import router as mei_router
 from security.cadastro_mei_routes import router as cadastro_mei_router
@@ -90,6 +91,7 @@ app.include_router(mei_router)
 app.include_router(cadastro_mei_router)
 app.include_router(cadastro_mei_admin_router)
 app.include_router(mei_produtos_router)
+app.include_router(mei_compras_router)
 app.include_router(lojas_publicas_router)
 
 

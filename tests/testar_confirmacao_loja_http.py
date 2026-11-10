@@ -15,6 +15,7 @@ from database.models import (
     Produto,
     get_db,
 )
+from database.contas_models import Estabelecimento
 
 
 @pytest.fixture
@@ -33,11 +34,21 @@ def ambiente():
     )
 
     with SessaoTeste() as db:
+        db.add(
+            Estabelecimento(
+                id=1,
+                nome="Loja Inicial",
+                slug="loja-inicial",
+                ativo=True,
+            )
+        )
+        db.flush()
         produto = Produto(
             nome="Arroz Portal Teste",
             preco=25.00,
             quantidade=10,
             categoria="Testes",
+            estabelecimento_id=1,
             estoque_minimo=5,
         )
 

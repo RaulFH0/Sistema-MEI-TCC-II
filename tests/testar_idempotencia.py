@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from database.models import Base, Produto, Compra, ItemCompra
+from database.contas_models import Estabelecimento
 from database.crud import registrar_compra_segura
 
 
@@ -23,19 +24,31 @@ def consultar_estoque(db, nome):
 
 try:
     with Session(engine) as db:
+        db.add(
+            Estabelecimento(
+                id=1,
+                nome="Loja Inicial",
+                slug="loja-inicial",
+                ativo=True,
+            )
+        )
+        db.commit()
+
 
         db.add_all([
             Produto(
                 nome="Arroz",
                 preco=25.00,
                 quantidade=50,
-                categoria="Alimentos"
+                categoria="Alimentos",
+                estabelecimento_id=1
             ),
             Produto(
                 nome="Feijão",
                 preco=8.50,
                 quantidade=40,
-                categoria="Alimentos"
+                categoria="Alimentos",
+                estabelecimento_id=1
             )
         ])
         db.commit()

@@ -8,6 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from database.models import Base, Produto, Compra
+from database.contas_models import Estabelecimento
 from database.crud import registrar_compra_segura
 import crew.orquestrador as orquestrador
 
@@ -28,11 +29,21 @@ def test_reenvio_sem_groq(monkeypatch):
     try:
         with SessaoTeste() as db:
             db.add(
+                Estabelecimento(
+                    id=1,
+                    nome="Loja Inicial",
+                    slug="loja-inicial",
+                    ativo=True,
+                )
+            )
+            db.flush()
+            db.add(
                 Produto(
                     nome="Arroz",
                     preco=25.00,
                     quantidade=50,
-                    categoria="Alimentos"
+                    categoria="Alimentos",
+                    estabelecimento_id=1,
                 )
             )
             db.commit()

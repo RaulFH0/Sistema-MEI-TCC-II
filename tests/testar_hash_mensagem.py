@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from database.models import Base, Produto, Compra
+from database.contas_models import Estabelecimento
 from database.crud import registrar_compra_segura
 
 
@@ -26,11 +27,22 @@ itens = [
 try:
     with Session(engine) as db:
         db.add(
+            Estabelecimento(
+                id=1,
+                nome="Loja Inicial",
+                slug="loja-inicial",
+                ativo=True,
+            )
+        )
+        db.commit()
+
+        db.add(
             Produto(
                 nome="Arroz",
                 preco=25.00,
                 quantidade=50,
-                categoria="Alimentos"
+                categoria="Alimentos",
+                estabelecimento_id=1
             )
         )
         db.commit()

@@ -7,6 +7,7 @@ from sqlalchemy.pool import StaticPool
 
 from database.crud import registrar_compra_segura
 from database.models import Base, Compra, ItemCompra, Produto
+from database.contas_models import Estabelecimento
 
 
 @pytest.fixture
@@ -25,11 +26,21 @@ def ambiente():
     )
 
     with SessaoTeste() as db:
+        db.add(
+            Estabelecimento(
+                id=1,
+                nome="Loja Inicial",
+                slug="loja-inicial",
+                ativo=True,
+            )
+        )
+        db.flush()
         arroz = Produto(
             nome="Arroz Teste",
             preco=25.00,
             quantidade=10,
             categoria="Testes",
+            estabelecimento_id=1,
         )
 
         feijao = Produto(
@@ -37,6 +48,7 @@ def ambiente():
             preco=8.50,
             quantidade=5,
             categoria="Testes",
+            estabelecimento_id=1,
         )
 
         db.add_all([arroz, feijao])
