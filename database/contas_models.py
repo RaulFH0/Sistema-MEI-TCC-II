@@ -11,11 +11,11 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 
-from database.models import Base
-
-
 def agora_utc():
     return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+from database.models import Base
 
 
 # ============================================================

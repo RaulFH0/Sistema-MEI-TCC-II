@@ -1,0 +1,98 @@
+.mei-loja-virtual {
+  margin-top: 24px;
+  padding: 24px;
+  border: 1px solid #dbe5e8;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 4px 18px rgba(19, 36, 59, .05);
+}
+
+.mei-loja-virtual-topo {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.mei-loja-virtual-icone {
+  font-size: 28px;
+}
+
+.mei-loja-virtual h2 {
+  margin: 0 0 6px;
+  color: #13243b;
+}
+
+.mei-loja-virtual p {
+  margin: 6px 0;
+}
+
+.mei-loja-virtual label {
+  display: block;
+  font-weight: 650;
+  margin-bottom: 8px;
+}
+
+.mei-loja-virtual input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #c9d7dc;
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 14px;
+  color: #13243b;
+  background: #f7fafb;
+}
+
+.mei-loja-virtual-acoes {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.mei-loja-virtual-acoes button,
+.mei-loja-virtual-abrir {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 10px;
+  background: #13243b;
+  color: #fff;
+  font: inherit;
+  font-weight: 650;
+  text-decoration: none;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.mei-loja-virtual-acoes button:hover,
+.mei-loja-virtual-abrir:hover {
+  background: #27435c;
+  color: #fff;
+}
+
+.mei-loja-virtual-acoes button:focus-visible,
+.mei-loja-virtual-abrir:focus-visible {
+  outline: 3px solid #23b58c;
+  outline-offset: 2px;
+}
+
+.mei-loja-virtual-observacao {
+  margin-top: 16px !important;
+  font-size: 13px;
+  color: #60717b;
+}
+
+@media (max-width: 600px) {
+  .mei-loja-virtual {
+    padding: 16px;
+  }
+
+  .mei-loja-virtual-acoes > * {
+    flex: 1 1 100%;
+  }
+}

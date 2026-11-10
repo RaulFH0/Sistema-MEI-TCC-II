@@ -12,7 +12,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from database.models import get_db
-from database.contas_models import UsuarioMEI
+from database.contas_models import UsuarioMEI, Estabelecimento
 from security.auth import verificar_senha
 from security.session_store import (
     criar_sessao_mei,
@@ -36,6 +36,35 @@ router = APIRouter(
 
 COOKIE_MEI = "sistema_mei_usuario"
 DURACAO_SESSAO = 8 * 60 * 60
+
+def _dados_loja_publica(
+    db: Session,
+    estabelecimento_id: int,
+) -> dict:
+    """
+    Consulta somente a loja vinculada a sessao MEI.
+    O cliente nao informa o ID da loja.
+    """
+    loja = (
+        db.query(Estabelecimento)
+        .filter(
+            Estabelecimento.id == estabelecimento_id,
+            Estabelecimento.ativo.is_(True),
+        )
+        .first()
+    )
+
+    if loja is None:
+        return {
+            "slug": None,
+            "nome_estabelecimento": None,
+        }
+
+    return {
+        "slug": loja.slug,
+        "nome_estabelecimento": loja.nome,
+    }
+
 
 
 class LoginMEIEntrada(BaseModel):
@@ -171,6 +200,7 @@ def login_mei(
     return {
         "autenticado": True,
         "usuario_mei_id": usuario.id,
+        **_dados_loja_publica(db, usuario.estabelecimento_id),
         "estabelecimento_id": usuario.estabelecimento_id,
         "email": usuario.email,
         "csrf_token": _token_csrf(token),
@@ -193,6 +223,7 @@ def consultar_login_mei(
     return {
         "autenticado": True,
         **identidade,
+        **_dados_loja_publica(db, identidade["estabelecimento_id"]),
         "csrf_token": _token_csrf(token),
     }
 

@@ -186,3 +186,263 @@ def test_mensagem_de_compra_nao_e_catalogo():
     assert not pergunta_catalogo(
         "Quero comprar 2 cadernos."
     )
+
+
+
+# ============================================================
+# CONSULTAS ESPECIFICAS DE PRODUTOS
+# ============================================================
+
+from security.consulta_produto_ia import (
+    consultar_produto_especifico,
+)
+
+
+def test_consulta_especifica_caderno(ambiente):
+    _, Sessao = ambiente
+
+    with Sessao() as db:
+        resultado = consultar_produto_especifico(
+            db,
+            1,
+            "Quanto custa o caderno?",
+        )
+
+        assert resultado is not None
+        assert resultado["sucesso"] is True
+        assert "Caderno Alpha" in resultado["resposta"]
+        assert "R$ 25,90" in resultado["resposta"]
+
+
+def test_consulta_especifica_isolamento(ambiente):
+    _, Sessao = ambiente
+
+    with Sessao() as db:
+        resultado = consultar_produto_especifico(
+            db,
+            1,
+            "Quanto custa o Produto Secreto Beta?",
+        )
+
+        assert resultado is None
+
+
+def test_consulta_especifica_sem_estoque(ambiente):
+    _, Sessao = ambiente
+
+    with Sessao() as db:
+        resultado = consultar_produto_especifico(
+            db,
+            1,
+            "Quanto custa a Caneta Sem Estoque?",
+        )
+
+        assert resultado is None
+
+
+def test_consulta_especifica_inexistente(ambiente):
+    _, Sessao = ambiente
+
+    with Sessao() as db:
+        resultado = consultar_produto_especifico(
+            db,
+            1,
+            "Quanto custa o notebook?",
+        )
+
+        assert resultado is None
+
+
+def test_consulta_especifica_nao_altera_estoque(ambiente):
+    _, Sessao = ambiente
+
+    with Sessao() as db:
+        antes = {
+            produto.id: produto.quantidade
+            for produto in db.query(Produto).all()
+        }
+
+        consultar_produto_especifico(
+            db,
+            1,
+            "Quanto custa o caderno?",
+        )
+
+        depois = {
+            produto.id: produto.quantidade
+            for produto in db.query(Produto).all()
+        }
+
+        assert antes == depois
+
+
+
+# ============================================================
+# INTEGRACAO MULTIINTENCAO COM BANCO TEMPORARIO
+# ============================================================
+
+from security.atendimento_multiintencao import (
+    atender_multiintencao,
+)
+
+
+def _loja_teste(db, slug):
+    loja = (
+        db.query(Estabelecimento)
+        .filter(Estabelecimento.slug == slug)
+        .one()
+    )
+    return loja.id
+
+
+def _classificacao_teste(intencao, origem="agente"):
+    def executar(mensagem):
+        return {
+            "intencao": intencao,
+            "confianca": 0.95,
+            "origem": origem,
+            "tempo_ms": 1.0,
+        }
+
+    return executar
+
+
+def _estado_comercial(db):
+    from sqlalchemy import text
+
+    produtos = [
+        (
+            produto.id,
+            produto.estabelecimento_id,
+            produto.quantidade,
+            str(produto.preco),
+        )
+        for produto in db.query(Produto)
+        .order_by(Produto.id)
+        .all()
+    ]
+
+    compras = db.execute(
+        text("SELECT COUNT(*) FROM compras")
+    ).scalar_one()
+
+    return produtos, compras
+
+
+def test_integracao_real_catalogo_loja_a(ambiente):
+    _, Sessao = ambiente
+
+    with Sessao() as db:
+        loja = _loja_teste(db, "loja-ia-a")
+
+        resposta = atender_multiintencao(
+            db,
+            loja,
+            "Quais produtos estao disponiveis nesta loja?",
+            classificador=_classificacao_teste(
+                "consulta_catalogo"
+            ),
+        )
+
+        assert resposta["acao_executada"] == (
+            "consulta_catalogo"
+        )
+        assert "Caderno Alpha" in resposta["resposta"]
+        assert "R$ 25,90" in resposta["resposta"]
+        assert "Produto Secreto Beta" not in resposta["resposta"]
+        assert resposta["dados"]["compra_registrada"] is False
+
+
+def test_integracao_real_produto_especifico(ambiente):
+    _, Sessao = ambiente
+
+    with Sessao() as db:
+        loja = _loja_teste(db, "loja-ia-a")
+
+        resposta = atender_multiintencao(
+            db,
+            loja,
+            "Quanto custa o caderno?",
+            classificador=_classificacao_teste(
+                "consulta_catalogo"
+            ),
+        )
+
+        assert resposta["acao_executada"] == (
+            "consulta_catalogo"
+        )
+        assert "Caderno Alpha" in resposta["resposta"]
+        assert "R$ 25,90" in resposta["resposta"]
+
+
+def test_integracao_real_isolamento_entre_lojas(ambiente):
+    _, Sessao = ambiente
+
+    with Sessao() as db:
+        loja_b = _loja_teste(db, "loja-ia-b")
+
+        resposta = atender_multiintencao(
+            db,
+            loja_b,
+            "Quanto custa o caderno?",
+            classificador=_classificacao_teste(
+                "consulta_catalogo"
+            ),
+        )
+
+        assert resposta["acao_executada"] == (
+            "solicitar_esclarecimento"
+        )
+        assert "Caderno Alpha" not in resposta["resposta"]
+        assert "R$ 25,90" not in resposta["resposta"]
+
+
+def test_integracao_real_compra_nao_registra(ambiente):
+    _, Sessao = ambiente
+
+    with Sessao() as db:
+        loja = _loja_teste(db, "loja-ia-a")
+        antes = _estado_comercial(db)
+
+        resposta = atender_multiintencao(
+            db,
+            loja,
+            "Quero comprar dois cadernos.",
+            classificador=_classificacao_teste("compra"),
+        )
+
+        db.expire_all()
+        depois = _estado_comercial(db)
+
+        assert resposta["acao_executada"] == (
+            "compra_pendente_confirmacao"
+        )
+        assert resposta["dados"]["compra_registrada"] is False
+        assert antes == depois
+
+
+def test_integracao_real_falha_agente_nao_registra(ambiente):
+    _, Sessao = ambiente
+
+    def falhar(mensagem):
+        raise RuntimeError("Provedor indisponivel")
+
+    with Sessao() as db:
+        loja = _loja_teste(db, "loja-ia-a")
+        antes = _estado_comercial(db)
+
+        resposta = atender_multiintencao(
+            db,
+            loja,
+            "Quero comprar dois cadernos.",
+            classificador=falhar,
+        )
+
+        db.expire_all()
+        depois = _estado_comercial(db)
+
+        assert resposta["acao_executada"] == (
+            "solicitar_esclarecimento"
+        )
+        assert resposta["dados"]["compra_registrada"] is False
+        assert antes == depois

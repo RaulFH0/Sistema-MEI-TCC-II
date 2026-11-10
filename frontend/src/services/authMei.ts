@@ -6,6 +6,8 @@ export interface SessaoMEI {
   autenticado: boolean
   usuario_mei_id: number
   estabelecimento_id: number
+  slug?: string | null
+  nome_estabelecimento?: string | null
   email?: string
   csrf_token: string
 }

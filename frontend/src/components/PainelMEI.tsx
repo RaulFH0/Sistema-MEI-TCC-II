@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import LoginMEI from './LoginMEI'
 import MinhasVendasMEI from './MinhasVendasMEI'
 import DashboardMEI from './DashboardMEI'
+import MinhaLojaVirtual from './MinhaLojaVirtual'
 import {
   consultarSessaoMei,
   limparSessaoMei,
@@ -265,6 +266,11 @@ export default function PainelMEI() {
           {saindo ? 'Saindo...' : 'Encerrar sessao'}
         </button>
       </header>
+
+      <MinhaLojaVirtual
+        slug={sessao.slug}
+        nome={sessao.nome_estabelecimento}
+      />
 
       {erro && <p role="alert">{erro}</p>}
       {sucesso && <p role="status">{sucesso}</p>}
