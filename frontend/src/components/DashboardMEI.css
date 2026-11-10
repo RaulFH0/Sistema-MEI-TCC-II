@@ -1,0 +1,174 @@
+.mei-dashboard {
+  color: #13243b;
+  display: grid;
+  gap: 24px;
+  margin-top: 28px;
+}
+
+.mei-dashboard-cabecalho,
+.mei-dashboard-grafico {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 18px rgba(19, 36, 59, .05);
+}
+
+.mei-dashboard h2,
+.mei-dashboard h3 {
+  color: #13243b;
+  margin-top: 0;
+}
+
+.mei-dashboard-cabecalho p,
+.mei-dashboard-periodo,
+.mei-dashboard-observacao {
+  color: #64748b;
+}
+
+.mei-dashboard-filtros {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.mei-dashboard-filtros > label {
+  flex-basis: 100%;
+  font-weight: 650;
+}
+
+.mei-dashboard select,
+.mei-dashboard input {
+  padding: 11px 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  color: #13243b;
+  font: inherit;
+}
+
+.mei-dashboard-datas {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mei-dashboard-datas label {
+  display: grid;
+  gap: 6px;
+  font-weight: 650;
+}
+
+.mei-dashboard button {
+  background: #13243b;
+  color: #fff;
+  border: 0;
+  border-radius: 10px;
+  padding: 11px 16px;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.mei-dashboard button:hover:not(:disabled) {
+  background: #27435c;
+}
+
+.mei-dashboard button:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.mei-dashboard :is(button, select, input):focus-visible {
+  outline: 3px solid rgba(35,181,140,.45);
+  outline-offset: 2px;
+}
+
+.mei-dashboard-indicadores {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.mei-dashboard-card {
+  display: grid;
+  gap: 12px;
+  padding: 22px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  border-top: 4px solid #23b58c;
+  box-shadow: 0 4px 18px rgba(19,36,59,.05);
+}
+
+.mei-dashboard-card span {
+  color: #64748b;
+  font-size: .9rem;
+}
+
+.mei-dashboard-card strong {
+  color: #13243b;
+  font-size: clamp(1.4rem, 3vw, 2rem);
+  overflow-wrap: anywhere;
+}
+
+.mei-dashboard-barras {
+  display: flex;
+  align-items: end;
+  gap: 18px;
+  min-height: 220px;
+  overflow-x: auto;
+  padding: 12px 0;
+}
+
+.mei-dashboard-dia {
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  min-width: 105px;
+  font-size: .8rem;
+}
+
+.mei-dashboard-trilha {
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  width: 56px;
+  height: 145px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.mei-dashboard-barra {
+  width: 100%;
+  background: #23b58c;
+  border-radius: 8px 8px 0 0;
+}
+
+.mei-dashboard-erro {
+  padding: 12px 16px;
+  color: #991b1b;
+  background: #fef2f2;
+  border-left: 4px solid #dc2626;
+  border-radius: 8px;
+}
+
+@media (max-width: 650px) {
+  .mei-dashboard-indicadores {
+    grid-template-columns: 1fr;
+  }
+
+  .mei-dashboard-cabecalho,
+  .mei-dashboard-grafico,
+  .mei-dashboard-card {
+    padding: 16px;
+  }
+
+  .mei-dashboard-filtros,
+  .mei-dashboard-datas {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

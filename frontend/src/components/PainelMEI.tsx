@@ -2,6 +2,7 @@ import './PainelMEI.css'
 import { useEffect, useState, type FormEvent } from 'react'
 import LoginMEI from './LoginMEI'
 import MinhasVendasMEI from './MinhasVendasMEI'
+import DashboardMEI from './DashboardMEI'
 import {
   consultarSessaoMei,
   limparSessaoMei,
@@ -28,7 +29,7 @@ function mensagemErro(falha: unknown): string {
 
 export default function PainelMEI() {
   const [sessao, setSessao] = useState<SessaoMEI | null>(null)
-  const [aba, setAba] = useState<'produtos' | 'vendas'>('produtos')
+  const [aba, setAba] = useState<'produtos' | 'vendas' | 'dashboard'>('produtos')
   const [verificando, setVerificando] = useState(true)
   const [produtos, setProdutos] = useState<ProdutoMEI[]>([])
   const [carregando, setCarregando] = useState(false)
@@ -288,6 +289,13 @@ export default function PainelMEI() {
         >
           Minhas vendas
         </button>
+        <button
+          type="button"
+          aria-pressed={aba === 'dashboard'}
+          onClick={() => setAba('dashboard')}
+        >
+          Dashboard
+        </button>
       </nav>
 
 
@@ -448,8 +456,10 @@ export default function PainelMEI() {
         )}
       </section>
         </>
-      ) : (
+      ) : aba === 'vendas' ? (
         <MinhasVendasMEI />
+      ) : (
+        <DashboardMEI />
       )}
     </main>
   )
