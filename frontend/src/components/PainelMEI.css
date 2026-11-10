@@ -1,0 +1,125 @@
+.mei-painel {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+  color: #13243b;
+  font-family: Inter, system-ui, Arial, sans-serif;
+}
+
+.mei-painel h1,
+.mei-painel h2 {
+  color: #13243b;
+}
+
+.mei-painel h1 {
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.mei-painel > header,
+.mei-painel > section {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 5px 20px rgba(19, 36, 59, 0.06);
+}
+
+.mei-painel > header p {
+  color: #64748b;
+}
+
+.mei-painel nav {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 24px 0;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.mei-painel button {
+  border: 0;
+  border-radius: 10px;
+  background: #13243b;
+  color: #fff;
+  padding: 11px 16px;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.mei-painel button:hover:not(:disabled) {
+  background: #27435c;
+}
+
+.mei-painel button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.mei-painel nav button {
+  background: #e9eff5;
+  color: #27435c;
+}
+
+.mei-painel nav button[aria-pressed="true"] {
+  background: #13243b;
+  color: #fff;
+  box-shadow: inset 0 -3px #23b58c;
+}
+
+.mei-painel label {
+  font-weight: 650;
+  color: #334155;
+}
+
+.mei-painel input,
+.mei-painel textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 11px 13px;
+  font: inherit;
+  max-width: 100%;
+}
+
+.mei-painel :is(button, input, textarea):focus-visible {
+  outline: 3px solid rgba(35, 181, 140, 0.45);
+  outline-offset: 2px;
+}
+
+.mei-painel table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.mei-painel th {
+  background: #f1f5f9;
+  color: #334155;
+  padding: 13px;
+  text-align: left;
+}
+
+.mei-painel td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 13px;
+}
+
+.mei-painel tbody tr:hover {
+  background: #f8fafc;
+}
+
+@media (max-width: 700px) {
+  .mei-painel {
+    padding: 12px;
+  }
+
+  .mei-painel > header,
+  .mei-painel > section {
+    padding: 16px;
+  }
+
+  .mei-painel nav button {
+    flex: 1 1 140px;
+  }
+}

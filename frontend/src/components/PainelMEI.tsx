@@ -1,3 +1,4 @@
+import './PainelMEI.css'
 import { useEffect, useState, type FormEvent } from 'react'
 import LoginMEI from './LoginMEI'
 import MinhasVendasMEI from './MinhasVendasMEI'
@@ -235,7 +236,7 @@ export default function PainelMEI() {
   }
 
   return (
-    <main style={{
+    <main className="mei-painel" style={{
       maxWidth: 1100,
       margin: '0 auto',
       padding: 24,

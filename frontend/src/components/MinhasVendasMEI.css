@@ -1,0 +1,58 @@
+.mei-vendas {
+  margin-top: 28px;
+  color: #13243b;
+}
+
+.mei-vendas h2 {
+  margin-top: 0;
+}
+
+.mei-vendas > p {
+  color: #64748b;
+}
+
+.mei-vendas article {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 20px;
+  margin-top: 16px;
+  box-shadow: 0 4px 16px rgba(19, 36, 59, 0.06);
+}
+
+.mei-vendas article h3 {
+  color: #13243b;
+  margin-top: 0;
+}
+
+.mei-vendas article strong {
+  color: #047857;
+  font-size: 1.1rem;
+}
+
+.mei-vendas article p {
+  color: #475569;
+}
+
+.mei-vendas details {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 12px;
+  margin-top: 16px;
+}
+
+.mei-vendas summary {
+  cursor: pointer;
+  color: #27435c;
+  font-weight: 700;
+}
+
+.mei-vendas li {
+  padding: 6px 0;
+}
+
+@media (max-width: 700px) {
+  .mei-vendas article {
+    padding: 16px;
+    overflow-wrap: anywhere;
+  }
+}

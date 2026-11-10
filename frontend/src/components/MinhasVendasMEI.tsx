@@ -1,3 +1,4 @@
+import './MinhasVendasMEI.css'
 import { useEffect, useState } from 'react'
 import { listarVendasMei, type VendaMEI } from '../services/meiCompras'
 
@@ -42,7 +43,7 @@ export default function MinhasVendasMEI() {
   }
 
   return (
-    <section style={{ marginTop: 28 }}>
+    <section className="mei-vendas" style={{ marginTop: 28 }}>
       <h2>Minhas vendas</h2>
       <p>Pedidos registrados no seu estabelecimento.</p>
 
