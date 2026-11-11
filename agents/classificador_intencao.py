@@ -251,6 +251,27 @@ def classificar_intencao(
 
     inicio = time.perf_counter()
 
+    # Verificacao antecipada somente para casos
+    # deterministas de risco ou incompletude.
+    # Evita chamar Groq desnecessariamente.
+    # Preserva os executores injetados para testes.
+    if (
+        executor is None
+        and _exige_esclarecimento(
+            mensagem,
+            "esclarecimento",
+        )
+    ):
+        return {
+            "intencao": "esclarecimento",
+            "confianca": 0.0,
+            "origem": "bloqueio_previo",
+            "tempo_ms": round(
+                (time.perf_counter() - inicio) * 1000,
+                2,
+            ),
+        }
+
     if executor is None:
         executor = _executar_agente
 
