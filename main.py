@@ -96,6 +96,8 @@ app.include_router(mei_produtos_router)
 app.include_router(mei_compras_router)
 app.include_router(mei_dashboard_router)
 app.include_router(lojas_publicas_router)
+from security.atendimento_ia_experimental_routes import router as atendimento_experimental_router
+app.include_router(atendimento_experimental_router)
 
 
 # ============================================================
