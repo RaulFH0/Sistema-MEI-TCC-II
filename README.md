@@ -1,169 +1,128 @@
-# Sistema MEI ? TCC II
+# Sistema MEI — TCC II
 
-**Sistema inteligente de apoio ? gest?o de microempreendedores individuais**
+**Sistema inteligente de apoio à gestão de microempreendedores individuais**
 
 **Autor:** Raul Ferreira Holanda
+
 **Orientador:** Prof. Me. Ronildo Oliveira da Silva
-**Curso:** Sistemas de Informa??o
-**Institui??o:** Centro Universit?rio Cat?lica de Quixad? (UniCat?lica)
+
+**Curso:** Sistemas de Informação
+
+**Instituição:** Centro Universitário Católica de Quixadá (UniCatólica)
+
 **Ano:** 2026
 
 ## Sobre o projeto
 
-O Sistema MEI ? um prot?tipo acad?mico de aplica??o web
-para apoio ? gest?o de microempreendedores individuais.
+O Sistema MEI é um protótipo acadêmico de aplicação web desenvolvido para apoiar a gestão de microempreendedores individuais (MEIs).
 
-O sistema integra funcionalidades de gest?o comercial,
-controle de estoque, atendimento em linguagem natural
-e componentes baseados em agentes de intelig?ncia
-artificial.
+A aplicação integra funcionalidades de gestão comercial, controle de estoque, atendimento em linguagem natural e componentes baseados em agentes de inteligência artificial.
 
-O trabalho foi desenvolvido no contexto do TCC II:
+### Título do TCC II
 
-**Desenvolvimento e Valida??o T?cnica de um Sistema
-Baseado em Agentes de Intelig?ncia Artificial para
-Apoio ? Gest?o de Microempreendedores Individuais.**
+**Desenvolvimento e Validação Técnica de um Sistema Baseado em Agentes de Inteligência Artificial para Apoio à Gestão de Microempreendedores Individuais**
 
 ## Objetivo
 
-Desenvolver e validar tecnicamente um prot?tipo que
-integre atendimento em linguagem natural e opera??es
-comerciais, com mecanismos de valida??o, autentica??o
-e isolamento dos registros por estabelecimento.
+Desenvolver e validar tecnicamente um protótipo web que integre atendimento em linguagem natural e operações comerciais, com mecanismos de validação, autenticação e isolamento dos registros por estabelecimento.
 
 ## Funcionalidades
 
-- Cadastro e gerenciamento de produtos.
-- Controle de estoque e estoque m?nimo.
-- Consultas ao cat?logo, pre?os e disponibilidade.
+- Cadastro, consulta e gerenciamento de produtos.
+- Controle de estoque e estoque mínimo.
+- Consulta de catálogo, preços e disponibilidade.
 - Atendimento em linguagem natural com apoio de IA.
-- Solicita??o de esclarecimentos para mensagens incompletas.
-- Processamento de pedidos com valida??es comerciais.
-- Prote??o contra registros duplicados de compras.
-- Autentica??o e controle de sess?es.
-- Separa??o de registros entre diferentes estabelecimentos.
-- Interfaces administrativas e ?rea p?blica da loja.
+- Tratamento de solicitações incompletas e ambíguas.
+- Registro de pedidos e compras com validações comerciais.
+- Proteção contra registros duplicados.
+- Autenticação e gerenciamento de sessões.
+- Isolamento de informações entre estabelecimentos.
+- Interfaces administrativas e área pública da loja.
 
-As funcionalidades representam o escopo do prot?tipo
-desenvolvido, n?o uma plataforma comercial homologada.
+As funcionalidades fazem parte de um protótipo acadêmico e não representam homologação para uso comercial em produção.
 
-## Tecnologias
+## Tecnologias utilizadas
 
-| Camada | Tecnologia |
+| Componente | Tecnologias |
 | --- | --- |
-| Backend | Python, FastAPI |
-| Banco de dados | SQLite, SQLAlchemy |
-| Valida??o | Pydantic |
-| Frontend | React, TypeScript, Vite |
-| Intelig?ncia artificial | Modelos de linguagem, CrewAI |
-| Testes automatizados | pytest |
+| Backend | Python e FastAPI |
+| Banco de dados | SQLite e SQLAlchemy |
+| Validação de dados | Pydantic |
+| Frontend | React, TypeScript e Vite |
+| Inteligência artificial | Modelos de linguagem e CrewAI |
+| Testes | pytest |
 | Versionamento | Git e GitHub |
 
-A opera??o dos componentes externos de IA pode exigir
-configura??o de credenciais e servi?os espec?ficos.
-
-## Arquitetura
+## Arquitetura simplificada
 
 ```text
-Cliente / Administrador MEI
+Usuário / Administrador MEI
            |
            v
-    Frontend React
+     Interface React
            |
            v
        API FastAPI
            |
-       +---+----------------+
-       |                    |
-       v                    v
- Regras comerciais     Componentes de IA
-       |                    |
-       v                    v
- SQLAlchemy / SQLite   Interpretacao de mensagens
-       |
-       v
- Produtos, estoque e pedidos
+    +------+-----------+
+    |                  |
+    v                  v
+Regras comerciais   Componentes de IA
+    |                  |
+    v                  v
+SQLAlchemy/SQLite  Interpretação
+    |              de mensagens
+    v
+Produtos, estoque
+e pedidos
 ```
 
-A representa??o acima e simplificada.
+As operações comerciais dependem das regras de validação do sistema. A interpretação de uma mensagem pela IA não constitui, isoladamente, autorização para registrar uma compra.
 
-A interpreta??o de mensagens n?o equivale, por si s?,
-? autoriza??o para registrar uma compra. Opera??es
-comerciais dependem das regras de valida??o do sistema.
+## Requisitos para execução
 
-## Estrutura principal
+- Python compatível com as dependências.
+- Node.js e npm para a interface.
+- Git para clonagem e versionamento.
+- Configuração local das variáveis de ambiente necessárias.
+- Credenciais válidas para as integrações externas utilizadas.
 
-```text
-Sistema-MEI/
-|-- main.py
-|-- database/
-|-- security/
-|-- crew/
-|-- frontend/
-|   |-- src/
-|   `-- package.json
-|-- tests/
-|-- requirements.txt
-`-- README.md
-```
+## Instalação e execução
 
-A estrutura pode conter outros m?dulos e arquivos
-de apoio, conforme a vers?o do projeto.
-
-## Requisitos de execu??o
-
-- Python compat?vel com as depend?ncias do projeto.
-- Node.js e npm compat?veis com o frontend.
-- Git.
-- Configura??o local das vari?veis de ambiente exigidas.
-- Credenciais v?lidas para integra??es externas, quando
-  essas funcionalidades forem utilizadas.
-
-Nenhuma credencial deve ser publicada neste reposit?rio.
-
-## Execu??o local ? Windows PowerShell
-
-### 1. Clonar o projeto
+### 1. Clonar o repositório
 
 ```powershell
 git clone https://github.com/RaulFH0/Sistema-MEI-TCC-II.git
 cd Sistema-MEI-TCC-II
 ```
 
-### 2. Preparar o ambiente Python
+### 2. Criar o ambiente Python
 
 ```powershell
 py -m venv venv
 .\venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-A instala??o depende das vers?es de Python e das
-bibliotecas utilizadas no projeto.
+### 3. Configurar o ambiente
 
-### 3. Configurar as integra??es
+Configure localmente as variáveis de ambiente exigidas pela aplicação e pelos serviços externos de inteligência artificial.
 
-Configure as vari?veis de ambiente exigidas pela
-aplica??o em seu ambiente local.
+**Nunca publique chaves de API, senhas ou tokens reais.**
 
-N?o copie arquivos com credenciais reais para o GitHub.
-
-### 4. Executar o backend
+### 4. Iniciar o backend
 
 ```powershell
 .\venv\Scripts\python.exe -m uvicorn main:app --reload
 ```
 
-Por padr?o, o servi?o poder? ser acessado em:
+Endereços locais esperados:
 
 - http://127.0.0.1:8000
 - http://127.0.0.1:8000/docs
 
-A disponibilidade das rotas depende da configura??o
-local e das inicializa??es exigidas pela aplica??o.
+### 5. Iniciar o frontend
 
-### 5. Executar o frontend
-
-Abra outro terminal:
+Em outro terminal:
 
 ```powershell
 cd frontend
@@ -171,96 +130,78 @@ npm install
 npm run dev
 ```
 
-O Vite apresentar? no terminal o endere?o local da
-interface.
+O endereço local da interface será exibido pelo Vite.
 
 ## Testes automatizados
 
-Para executar a su?te completa:
+Execute a suíte com:
 
 ```powershell
 .\venv\Scripts\python.exe -m pytest -q
 ```
 
-### Evid?ncia apresentada no TCC II
+### Resultados da versão publicada
 
-Na regress?o geral registrada em **19/11/2026**:
+Na execução de 22 de novembro de 2026, antes da publicação do commit `c24f124`, foram obtidos:
 
 | Indicador | Resultado |
 | --- | ---: |
 | Testes aprovados | 400 |
 | Testes com falha | 0 |
 | Avisos | 1 |
-| Dura??o | 162,88 segundos |
+| Duração da regressão | 97,38 segundos |
+| Compilação do frontend | Aprovada |
 
-Esses valores pertencem ? execu??o documentada naquela
-data. A quantidade de testes e os resultados podem
-mudar em vers?es posteriores do c?digo.
+O aviso registrado está relacionado à inspeção de um índice do banco de dados SQLite pelo SQLAlchemy.
 
-A aprova??o dos testes n?o garante aus?ncia total de
-defeitos, seguran?a absoluta ou cobertura integral.
+Os resultados representam a execução registrada, não uma garantia de ausência de defeitos ou de cobertura integral do código.
 
-## Metodologia acad?mica
+**Versão de referência:** `c24f124`
 
-A pesquisa possui natureza aplicada, com objetivos
-explorat?rios e descritivos.
+## Metodologia acadêmica
 
-A avalia??o foi baseada no desenvolvimento do
-prot?tipo, testes automatizados e ensaios t?cnicos
-em ambientes controlados.
+A pesquisa é aplicada, exploratória e descritiva, concentrada no desenvolvimento e na validação técnica do protótipo.
 
-N?o foram realizadas avalia??es de produtividade ou
-usabilidade com microempreendedores participantes
-nesta etapa.
+Foram utilizadas verificações automatizadas e ensaios técnicos em cenários controlados.
 
-Portanto, os resultados n?o demonstram ganhos reais
-de produtividade, receita ou satisfa??o dos usu?rios.
+Não foram realizadas avaliações de produtividade ou usabilidade com microempreendedores participantes nesta etapa.
 
-## Limita??es
+Portanto, os resultados não comprovam aumento de produtividade, receita ou satisfação de usuários reais.
 
-- Depend?ncia de servi?os externos para recursos de IA.
-- Custo de inicializa??o de componentes inteligentes.
-- Limita??es de interpreta??o de mensagens ambiguas.
-- Aus?ncia de avalia??o de uso com o p?blico-alvo.
-- Aus?ncia de auditoria independente completa de seguran?a.
-- Resultados t?cnicos limitados aos cen?rios avaliados.
+## Limitações
 
-## Seguran?a e privacidade
+- Dependência de serviços externos para funcionalidades de IA.
+- Custo de inicialização de componentes inteligentes.
+- Possíveis dificuldades na interpretação de mensagens ambíguas.
+- Ausência de validação com microempreendedores participantes.
+- Ausência de auditoria independente e abrangente de segurança.
+- Resultados restritos aos cenários técnicos avaliados.
 
-Este projeto ? disponibilizado para fins acad?micos.
+## Segurança e privacidade
 
-N?o devem ser versionados:
+Este projeto é disponibilizado para fins acadêmicos.
 
-- Credenciais e chaves de API.
-- Senhas, tokens e segredos de autentica??o.
-- Bancos de dados contendo registros privados.
-- Arquivos `.env` com valores reais.
-- Ambientes virtuais e depend?ncias instaladas.
-- Backups e arquivos de execu??o locais.
+Não devem ser publicados:
 
-Antes de publicar atualiza??es, verifique tamb?m o
-historico de commits, pois o `.gitignore` n?o remove
-arquivos sens?veis j? versionados.
+- Arquivos `.env` com credenciais reais.
+- Chaves de API, senhas e tokens.
+- Bancos de dados com informações privadas.
+- Ambientes virtuais Python.
+- Dependências instaladas do frontend.
+- Backups contendo informações sensíveis.
 
-## Refer?ncia acad?mica
+O `.gitignore` ajuda a evitar novos arquivos indevidos, mas não remove informações já existentes no histórico do Git.
 
-HOLANDA, Raul Ferreira. **Desenvolvimento e valida??o
-t?cnica de um sistema baseado em agentes de intelig?ncia
-artificial para apoio ? gest?o de microempreendedores
-individuais**. Trabalho de Conclus?o de Curso.
-Sistemas de Informa??o, Centro Universit?rio Cat?lica
-de Quixad?, Quixad?, 2026.
+## Referência acadêmica
+
+HOLANDA, Raul Ferreira. **Desenvolvimento e validação técnica de um sistema baseado em agentes de inteligência artificial para apoio à gestão de microempreendedores individuais**. Trabalho de Conclusão de Curso. Sistemas de Informação, Centro Universitário Católica de Quixadá, Quixadá, 2026.
 
 ## Autor
 
 **Raul Ferreira Holanda**
 
-Trabalho de Conclus?o de Curso II ? 2026.
+Trabalho de Conclusão de Curso II — UniCatólica — 2026.
 
-## Observa??o
+## Observação
 
-Este reposit?rio apresenta um prot?tipo desenvolvido
-para estudo acad?mico e valida??o t?cnica.
-
-N?o h? declara??o de homologa??o para uso em produ??o
-ou garantia de adequa??o a opera??es comerciais reais.
+O Sistema MEI é um protótipo de pesquisa. Sua disponibilização não implica homologação, certificação de segurança ou garantia de adequação para operações comerciais em produção.
