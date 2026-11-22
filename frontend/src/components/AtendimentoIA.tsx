@@ -1,5 +1,5 @@
 
-import { useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 
 import {
@@ -22,6 +22,13 @@ type AtendimentoIAProps = {
 }
 
 type TipoErro = 'conflito' | 'validacao' | 'incerto' | null
+
+type RegistroConversa = {
+  chave: string
+  mensagem: string
+  resposta: string
+  acao: string
+}
 
 const CHAVE_ARMAZENAMENTO = 'sistema-mei-atendimento-pendente-v1'
 
@@ -92,6 +99,45 @@ function removerSolicitacao(chaveArmazenamento: string): void {
   sessionStorage.removeItem(chaveArmazenamento)
 }
 
+
+// HISTORICO CONTINUO DO ATENDIMENTO - TCC II
+function chaveHistoricoChat(slug?: string): string {
+  return `sistema-mei-chat-v1:${slug ?? 'geral'}`
+}
+
+function recuperarHistoricoChat(
+  slug?: string
+): RegistroConversa[] {
+  try {
+    const salvo = sessionStorage.getItem(
+      chaveHistoricoChat(slug)
+    )
+
+    if (!salvo) return []
+
+    const dados: unknown = JSON.parse(salvo)
+
+    if (!Array.isArray(dados)) return []
+
+    return dados.filter(
+      (item): item is RegistroConversa =>
+        typeof item === 'object' &&
+        item !== null &&
+        typeof item.chave === 'string' &&
+        typeof item.mensagem === 'string' &&
+        typeof item.resposta === 'string' &&
+        typeof item.acao === 'string' &&
+        item.chave.length > 0 &&
+        item.chave.length <= 128 &&
+        item.mensagem.length > 0 &&
+        item.mensagem.length <= 4000 &&
+        item.resposta.length <= 20000
+    ).slice(-80)
+  } catch {
+    return []
+  }
+}
+
 export default function AtendimentoIA({
   slug,
 }: AtendimentoIAProps) {
@@ -112,12 +158,27 @@ export default function AtendimentoIA({
     RespostaAtendimento | null
   >(null)
 
+  const [historico, setHistorico] = useState<
+    RegistroConversa[]
+  >(() => recuperarHistoricoChat(slug))
+
   const [erro, setErro] = useState('')
   const [tipoErro, setTipoErro] = useState<TipoErro>(null)
   const [enviando, setEnviando] = useState(false)
 
   // Impede dois envios simultaneos no mesmo componente.
   const enviandoRef = useRef(false)
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        chaveHistoricoChat(slug),
+        JSON.stringify(historico)
+      )
+    } catch {
+      // O chat continua funcionando sem armazenamento.
+    }
+  }, [historico, slug])
 
   const compra = resultado?.dados?.pedido
 
@@ -161,6 +222,18 @@ export default function AtendimentoIA({
 
       // Somente uma confirmacao recebida pela API
       // encerra automaticamente a tentativa pendente.
+      setHistorico((anterior) => [
+        ...anterior.filter(
+          (registro) => registro.chave !== dados.chave
+        ),
+        {
+          chave: dados.chave,
+          mensagem: dados.mensagem,
+          resposta: resposta.resposta,
+          acao: resposta.acao_executada,
+        },
+      ].slice(-80))
+
       setResultado(resposta)
       setUltimaMensagem(dados.mensagem)
 
@@ -316,6 +389,39 @@ export default function AtendimentoIA({
             </div>
           )}
 
+
+          {/* HISTORICO DA CONVERSA */}
+          <div aria-label="Historico de mensagens">
+            {historico
+              .slice(0, resultado ? -1 : undefined)
+              .map((registro) => (
+                <Fragment key={registro.chave}>
+                  <div className="chat-linha usuario">
+                    <div className="chat-balao usuario">
+                      {registro.mensagem}
+                    </div>
+                  </div>
+
+                  <div className="chat-linha assistente">
+                    <div className="chat-balao assistente">
+                      <strong>
+                        {registro.acao === 'pedido_confirmado'
+                          ? 'Compra confirmada'
+                          : registro.acao === 'pedido_repetido'
+                            ? 'Compra recuperada'
+                            : registro.acao === 'saudacao'
+                              ? 'Boas-vindas'
+                              : registro.acao === 'esclarecimento'
+                                ? 'Vamos continuar o atendimento'
+                                : 'Resposta do assistente'}
+                      </strong>
+                      <p>{registro.resposta}</p>
+                    </div>
+                  </div>
+                </Fragment>
+              ))}
+          </div>
+
           {ultimaMensagem && (
             <div className="chat-linha usuario">
               <div className="chat-balao usuario">
@@ -327,7 +433,7 @@ export default function AtendimentoIA({
           {enviando && (
             <div className="chat-linha assistente">
               <div className="chat-balao assistente">
-                <strong>Processando pedido...</strong>
+                <strong>Processando mensagem...</strong>
 
                 <p className="chat-detalhe">
                   Aguarde a confirmacao da compra no banco
@@ -341,11 +447,15 @@ export default function AtendimentoIA({
             <div className="chat-linha assistente">
               <div className="chat-balao assistente">
                 <strong>
-                  {resultado.acao_executada === 'consulta_catalogo'
-                    ? 'Consulta realizada'
-                    : compra?.requisicao_repetida
-                      ? 'Compra recuperada'
-                      : 'Compra confirmada'}
+                  {compra
+                    ? (compra.requisicao_repetida
+                        ? 'Compra recuperada'
+                        : 'Compra confirmada')
+                    : resultado.acao_executada === 'saudacao'
+                      ? 'Boas-vindas'
+                      : resultado.acao_executada === 'esclarecimento'
+                        ? 'Vamos continuar o atendimento'
+                        : 'Resposta do assistente'}
                 </strong>
 
                 <p>{resultado.resposta}</p>
@@ -400,7 +510,7 @@ export default function AtendimentoIA({
                 >
                   {resultado.acao_executada === 'consulta_catalogo'
                     ? 'Fazer outra pergunta'
-                    : 'Novo atendimento'}
+                    : 'Continuar conversa'}
                 </button>
               </div>
             </div>

@@ -19,6 +19,10 @@ from rag.retriever import buscar_contexto
 from database.models import init_db, SessionLocal
 from database import crud
 from schemas.pedido import PedidoMultiploCreate
+from pydantic import ValidationError
+from security.atendimento_conversacional import (
+    esclarecimento_triagem,
+)
 
 
 # ============================================================
@@ -152,15 +156,37 @@ def processar_pedido(
 
         try:
             dados = json.loads(texto_triagem)
+        except json.JSONDecodeError:
+            dados = None
 
-        except json.JSONDecodeError as exc:
-            raise ValueError(
-                "Triagem retornou JSON invalido."
-            ) from exc
-
-        pedido = PedidoMultiploCreate.model_validate(
+        resposta_esclarecimento = esclarecimento_triagem(
             dados
         )
+
+        if resposta_esclarecimento is not None:
+            return {
+                "sucesso": False,
+                "tipo": "esclarecimento",
+                "resposta": resposta_esclarecimento,
+                "tempo_ms": tempo_decorrido(),
+            }
+
+        try:
+            pedido = PedidoMultiploCreate.model_validate(
+                dados
+            )
+        except ValidationError:
+            return {
+                "sucesso": False,
+                "tipo": "esclarecimento",
+                "resposta": (
+                    "Nao consegui identificar todos os "
+                    "dados necessarios para o pedido. "
+                    "Informe seu nome, os produtos e "
+                    "as quantidades desejadas."
+                ),
+                "tempo_ms": tempo_decorrido(),
+            }
 
         # ====================================================
         # ETAPA 4 - INVENTARIO CONSULTIVO

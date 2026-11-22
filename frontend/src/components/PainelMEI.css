@@ -123,3 +123,321 @@
     flex: 1 1 140px;
   }
 }
+
+
+/* Painel gerencial de estoque do MEI */
+
+.mei-estoque-visao {
+  margin-top: 32px;
+}
+
+.mei-estoque-titulo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.mei-estoque-titulo h2 {
+  margin: 0 0 8px;
+  color: #13263e;
+}
+
+.mei-estoque-titulo p {
+  margin: 0;
+  color: #64748b;
+}
+
+.mei-estoque-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.mei-estoque-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px;
+  background: #ffffff;
+  border: 1px solid #dce4ee;
+  border-radius: 16px;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
+}
+
+.mei-estoque-card span {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.mei-estoque-card strong {
+  color: #13263e;
+  font-size: 32px;
+}
+
+.mei-estoque-card small {
+  color: #64748b;
+}
+
+.mei-estoque-alerta {
+  margin-top: 20px;
+  padding: 16px 20px;
+  border: 1px solid #f5ce78;
+  border-radius: 12px;
+  background: #fff8e7;
+  color: #8a5200;
+  font-weight: 600;
+}
+
+.mei-estoque-filtros {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 16px 0 24px;
+}
+
+.mei-estoque-filtros input[type="search"] {
+  flex: 1 1 240px;
+  min-width: 0;
+  max-width: 360px;
+  padding: 12px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: white;
+  color: #13263e;
+}
+
+.mei-estoque-filtros label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #334155;
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .mei-estoque-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* Controle de estoque minimo do empreendedor */
+
+.mei-estoque-situacao {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.mei-estoque-situacao.normal {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.mei-estoque-situacao.baixo {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.mei-estoque-situacao.esgotado {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.mei-estoque-edicao {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mei-estoque-edicao input[type="number"] {
+  width: 76px;
+  min-width: 0;
+}
+
+
+/* MEI - ORGANIZACAO DO INVENTARIO V1 */
+
+.mei-painel .mei-estoque-cards {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.mei-painel .mei-inventario,
+.mei-painel .mei-cadastro {
+  margin-top: 24px;
+  padding: 24px;
+  background: #ffffff;
+  border: 1px solid #dce4ee;
+  border-radius: 16px;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
+}
+
+.mei-painel .mei-inventario h2,
+.mei-painel .mei-cadastro h2 {
+  margin: 0 0 10px;
+  color: #13263e;
+}
+
+.mei-painel .mei-inventario-descricao {
+  margin: 0 0 20px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.mei-painel .mei-inventario table {
+  min-width: 780px;
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.mei-painel .mei-inventario th,
+.mei-painel .mei-inventario td {
+  padding: 12px 10px;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+.mei-painel .mei-inventario th {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.mei-painel .mei-inventario td {
+  font-size: 14px;
+}
+
+.mei-painel .mei-inventario tbody tr:hover {
+  background: #f8fafc;
+}
+
+.mei-painel .mei-cadastro form {
+  width: 100%;
+}
+
+@media (max-width: 1000px) {
+  .mei-painel .mei-estoque-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .mei-painel .mei-estoque-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .mei-painel .mei-inventario,
+  .mei-painel .mei-cadastro {
+    padding: 16px;
+  }
+}
+
+
+/* MEI GERENCIAR PRODUTOS V1 */
+
+.mei-painel .mei-gerenciar {
+  margin-top: 24px;
+  padding: 24px;
+  background: #ffffff;
+  border: 1px solid #dce4ee;
+  border-radius: 16px;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
+}
+
+.mei-gerenciar-cabecalho {
+  margin-bottom: 24px;
+}
+
+.mei-gerenciar-cabecalho h2 {
+  margin: 0 0 8px;
+  color: #13263e;
+}
+
+.mei-gerenciar-cabecalho p {
+  margin: 0;
+  color: #64748b;
+}
+
+.mei-gerenciar-grade {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+
+.mei-gerenciar-card {
+  min-width: 0;
+  padding: 4px;
+}
+
+.mei-gerenciar-card h3 {
+  margin: 0 0 16px;
+  font-size: 17px;
+  color: #13263e;
+}
+
+.mei-gerenciar-card form {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  max-width: none !important;
+}
+
+.mei-gerenciar-card label {
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mei-gerenciar-card input,
+.mei-gerenciar-card select,
+.mei-gerenciar-card textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+}
+
+.mei-gerenciar-card input,
+.mei-gerenciar-card select {
+  min-height: 40px;
+  padding: 9px 12px;
+}
+
+.mei-gerenciar-card textarea {
+  padding: 10px 12px;
+}
+
+.mei-gerenciar-card button[type="submit"] {
+  width: fit-content;
+  min-width: 160px;
+  margin-top: 6px;
+}
+
+.mei-gerenciar-ajuda {
+  margin: 4px 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .mei-gerenciar-grade {
+    grid-template-columns: 1fr;
+  }
+
+  .mei-painel .mei-gerenciar {
+    padding: 16px;
+  }
+}

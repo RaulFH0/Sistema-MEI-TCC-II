@@ -309,3 +309,369 @@ def test_sem_autenticacao(ambiente):
     with TestClient(app) as anonimo:
         resposta = anonimo.get("/mei/produtos")
         assert resposta.status_code == 401
+
+
+# ============================================================
+# TESTES DE ESTOQUE MINIMO MEI - TCC II
+# ============================================================
+
+def test_estoque_minimo_mei_propria_loja(ambiente):
+    cadastro = cadastrar(
+        ambiente["cliente1"],
+        ambiente["csrf1"],
+        "Produto Limite Proprio",
+    )
+
+    assert cadastro.status_code == 201, cadastro.text
+
+    produto_id = cadastro.json()["id"]
+
+    assert cadastro.json()["estoque_minimo"] == 5
+
+    resposta = ambiente["cliente1"].patch(
+        f"/mei/produtos/{produto_id}/estoque-minimo",
+        json={"estoque_minimo": 10},
+        headers={
+            "X-CSRF-Token": ambiente["csrf1"]
+        },
+    )
+
+    assert resposta.status_code == 200, resposta.text
+    assert resposta.json()["estoque_minimo"] == 10
+    assert resposta.json()["estabelecimento_id"] == (
+        ambiente["loja1"]
+    )
+
+    lista = ambiente["cliente1"].get("/mei/produtos")
+
+    assert lista.status_code == 200
+
+    produto_listado = next(
+        p for p in lista.json()
+        if p["id"] == produto_id
+    )
+
+    assert produto_listado["estoque_minimo"] == 10
+
+    with ambiente["SessaoTeste"]() as db:
+        produto = db.get(Produto, produto_id)
+        assert produto.estoque_minimo == 10
+
+
+def test_estoque_minimo_mei_outra_loja_bloqueado(ambiente):
+    cadastro = cadastrar(
+        ambiente["cliente1"],
+        ambiente["csrf1"],
+        "Produto Minimo Protegido",
+    )
+
+    assert cadastro.status_code == 201, cadastro.text
+
+    produto_id = cadastro.json()["id"]
+
+    resposta = ambiente["cliente2"].patch(
+        f"/mei/produtos/{produto_id}/estoque-minimo",
+        json={"estoque_minimo": 99},
+        headers={
+            "X-CSRF-Token": ambiente["csrf2"]
+        },
+    )
+
+    assert resposta.status_code == 404, resposta.text
+
+    with ambiente["SessaoTeste"]() as db:
+        produto = db.get(Produto, produto_id)
+
+        assert produto is not None
+        assert produto.estabelecimento_id == ambiente["loja1"]
+        assert produto.estoque_minimo == 5
+
+
+def test_estoque_minimo_mei_sem_csrf(ambiente):
+    cadastro = cadastrar(
+        ambiente["cliente1"],
+        ambiente["csrf1"],
+        "Produto CSRF Obrigatorio",
+    )
+
+    assert cadastro.status_code == 201
+
+    produto_id = cadastro.json()["id"]
+
+    resposta = ambiente["cliente1"].patch(
+        f"/mei/produtos/{produto_id}/estoque-minimo",
+        json={"estoque_minimo": 15},
+    )
+
+    assert resposta.status_code == 403
+
+    with ambiente["SessaoTeste"]() as db:
+        produto = db.get(Produto, produto_id)
+        assert produto.estoque_minimo == 5
+
+
+def test_estoque_minimo_mei_csrf_de_outra_loja(ambiente):
+    cadastro = cadastrar(
+        ambiente["cliente1"],
+        ambiente["csrf1"],
+        "Produto Token Incorreto",
+    )
+
+    assert cadastro.status_code == 201
+
+    produto_id = cadastro.json()["id"]
+
+    resposta = ambiente["cliente1"].patch(
+        f"/mei/produtos/{produto_id}/estoque-minimo",
+        json={"estoque_minimo": 22},
+        headers={
+            "X-CSRF-Token": ambiente["csrf2"]
+        },
+    )
+
+    assert resposta.status_code == 403
+
+    with ambiente["SessaoTeste"]() as db:
+        produto = db.get(Produto, produto_id)
+        assert produto.estoque_minimo == 5
+
+
+def test_estoque_minimo_mei_sem_autenticacao(ambiente):
+    cadastro = cadastrar(
+        ambiente["cliente1"],
+        ambiente["csrf1"],
+        "Produto Sem Login",
+    )
+
+    assert cadastro.status_code == 201
+
+    produto_id = cadastro.json()["id"]
+
+    with TestClient(app) as anonimo:
+        resposta = anonimo.patch(
+            f"/mei/produtos/{produto_id}/estoque-minimo",
+            json={"estoque_minimo": 30},
+        )
+
+    assert resposta.status_code == 401
+
+    with ambiente["SessaoTeste"]() as db:
+        produto = db.get(Produto, produto_id)
+        assert produto.estoque_minimo == 5
+
+
+@pytest.mark.parametrize(
+    "valor",
+    [-1, 1.5, True, "3"],
+)
+def test_estoque_minimo_mei_valores_invalidos(
+    ambiente,
+    valor,
+):
+    cadastro = cadastrar(
+        ambiente["cliente1"],
+        ambiente["csrf1"],
+        "Produto Validacao Minimo",
+    )
+
+    assert cadastro.status_code == 201
+
+    produto_id = cadastro.json()["id"]
+
+    resposta = ambiente["cliente1"].patch(
+        f"/mei/produtos/{produto_id}/estoque-minimo",
+        json={"estoque_minimo": valor},
+        headers={
+            "X-CSRF-Token": ambiente["csrf1"]
+        },
+    )
+
+    assert resposta.status_code == 422
+
+    with ambiente["SessaoTeste"]() as db:
+        produto = db.get(Produto, produto_id)
+        assert produto.estoque_minimo == 5
+
+
+def test_estoque_minimo_mei_zero_permitido(ambiente):
+    cadastro = cadastrar(
+        ambiente["cliente1"],
+        ambiente["csrf1"],
+        "Produto Limite Zero",
+    )
+
+    assert cadastro.status_code == 201
+
+    produto_id = cadastro.json()["id"]
+
+    resposta = ambiente["cliente1"].patch(
+        f"/mei/produtos/{produto_id}/estoque-minimo",
+        json={"estoque_minimo": 0},
+        headers={
+            "X-CSRF-Token": ambiente["csrf1"]
+        },
+    )
+
+    assert resposta.status_code == 200, resposta.text
+    assert resposta.json()["estoque_minimo"] == 0
+
+
+def test_estoque_minimo_mei_id_invalido(ambiente):
+    resposta = ambiente["cliente1"].patch(
+        "/mei/produtos/0/estoque-minimo",
+        json={"estoque_minimo": 10},
+        headers={
+            "X-CSRF-Token": ambiente["csrf1"]
+        },
+    )
+
+    assert resposta.status_code == 422
+
+
+def test_estoque_minimo_mei_produto_inexistente(ambiente):
+    resposta = ambiente["cliente1"].patch(
+        "/mei/produtos/999999/estoque-minimo",
+        json={"estoque_minimo": 10},
+        headers={
+            "X-CSRF-Token": ambiente["csrf1"]
+        },
+    )
+
+    assert resposta.status_code == 404
+
+
+# TESTES ATENDIMENTO CONVERSACIONAL V2
+
+@pytest.mark.parametrize(
+    "mensagem",
+    [
+        "Oi",
+        "Ola bom dia",
+        "Ol\u00e1, bom dia!",
+        "Boa tarde",
+        "Oi, tudo bem?",
+    ],
+)
+def test_saudacoes_conversacionais(mensagem):
+    from security.atendimento_conversacional import (
+        responder_saudacao,
+    )
+
+    assert responder_saudacao(mensagem) is not None
+
+
+def test_saudacao_com_compra_nao_interceptada():
+    from security.atendimento_conversacional import (
+        responder_saudacao,
+    )
+
+    assert responder_saudacao(
+        "Ola, quero comprar duas camisetas"
+    ) is None
+
+
+def test_triagem_incompleta_pede_esclarecimento():
+    from security.atendimento_conversacional import (
+        esclarecimento_triagem,
+    )
+
+    dados = {
+        "cliente_nome": None,
+        "itens": [],
+        "erro": "Dados insuficientes",
+    }
+
+    resposta = esclarecimento_triagem(dados)
+
+    assert resposta is not None
+    assert "informe" in resposta.lower()
+
+
+def test_triagem_valida_nao_interceptada():
+    from security.atendimento_conversacional import (
+        esclarecimento_triagem,
+    )
+
+    dados = {
+        "cliente_nome": "Ana",
+        "itens": [
+            {
+                "produto_nome": "Camiseta",
+                "quantidade": 2,
+            }
+        ],
+    }
+
+    assert esclarecimento_triagem(dados) is None
+
+
+def test_loja_saudacao_sem_iniciar_compra(
+    ambiente,
+    monkeypatch,
+):
+    import main
+
+    def compra_proibida(*args, **kwargs):
+        pytest.fail("Saudacao iniciou fluxo de compra.")
+
+    monkeypatch.setattr(
+        main,
+        "processar_pedido",
+        compra_proibida,
+    )
+
+    resposta = ambiente["cliente1"].post(
+        "/lojas/loja-http-um/atender",
+        json={"mensagem": "Ol\u00e1, bom dia!"},
+        headers={
+            "Idempotency-Key": "teste-saudacao-2026-v2"
+        },
+    )
+
+    assert resposta.status_code == 200, resposta.text
+
+    dados = resposta.json()
+
+    assert dados["sucesso"] is True
+    assert dados["acao_executada"] == "saudacao"
+    assert "pedido" not in (dados.get("dados") or {})
+
+
+def test_loja_esclarecimento_sem_compra(
+    ambiente,
+    monkeypatch,
+):
+    import main
+
+    monkeypatch.setattr(
+        main,
+        "consultar_catalogo",
+        lambda *args, **kwargs: None,
+    )
+
+    monkeypatch.setattr(
+        main,
+        "processar_pedido",
+        lambda **kwargs: {
+            "sucesso": False,
+            "tipo": "esclarecimento",
+            "resposta": "Informe os dados do pedido.",
+            "tempo_ms": 1,
+        },
+    )
+
+    resposta = ambiente["cliente1"].post(
+        "/lojas/loja-http-um/atender",
+        json={"mensagem": "Quero fazer um pedido"},
+        headers={
+            "Idempotency-Key": "teste-esclarecimento-v2"
+        },
+    )
+
+    assert resposta.status_code == 200, resposta.text
+
+    dados = resposta.json()
+
+    assert dados["sucesso"] is True
+    assert dados["acao_executada"] == "esclarecimento"
+    assert "pedido" not in (dados.get("dados") or {})

@@ -446,3 +446,122 @@ def test_integracao_real_falha_agente_nao_registra(ambiente):
         )
         assert resposta["dados"]["compra_registrada"] is False
         assert antes == depois
+
+
+# CONSULTA INDIVIDUAL NA ROTA PUBLICA V3 - TESTES
+
+def test_rota_publica_preco_nome_parcial_v3(ambiente):
+    cliente, Sessao = ambiente
+
+    with Sessao() as db:
+        antes = _estado_comercial(db)
+
+    resposta = cliente.post(
+        "/lojas/loja-ia-a/atender",
+        json={"mensagem": "Quanto custa o caderno?"},
+        headers={"Idempotency-Key": "preco-parcial-v3"},
+    )
+
+    assert resposta.status_code == 200, resposta.text
+    dados = resposta.json()
+
+    assert dados["acao_executada"] == "consulta_catalogo"
+    assert "Caderno Alpha" in dados["resposta"]
+    assert "R$ 25,90" in dados["resposta"]
+    assert "Produto Secreto Beta" not in dados["resposta"]
+
+    with Sessao() as db:
+        assert _estado_comercial(db) == antes
+
+
+def test_rota_publica_preco_isolamento_v3(ambiente):
+    cliente, _ = ambiente
+
+    resposta = cliente.post(
+        "/lojas/loja-ia-b/atender",
+        json={"mensagem": "Quanto custa o caderno?"},
+        headers={"Idempotency-Key": "preco-isolado-v3"},
+    )
+
+    assert resposta.status_code == 200, resposta.text
+    dados = resposta.json()
+
+    assert dados["acao_executada"] == (
+        "solicitar_esclarecimento"
+    )
+    assert "Caderno Alpha" not in dados["resposta"]
+    assert "R$ 25,90" not in dados["resposta"]
+
+
+def test_rota_publica_produto_teste_v3(ambiente):
+    cliente, Sessao = ambiente
+
+    with Sessao.begin() as db:
+        loja = db.query(Estabelecimento).filter_by(
+            slug="loja-ia-a"
+        ).one()
+
+        db.add(Produto(
+            nome="Produto teste",
+            preco=18.75,
+            quantidade=13,
+            categoria="Testes",
+            estabelecimento_id=loja.id,
+        ))
+
+    resposta = cliente.post(
+        "/lojas/loja-ia-a/atender",
+        json={
+            "mensagem": (
+                "Qual o pre\u00e7o do Produto teste?"
+            )
+        },
+        headers={"Idempotency-Key": "preco-exato-v3"},
+    )
+
+    assert resposta.status_code == 200, resposta.text
+    dados = resposta.json()
+
+    assert dados["acao_executada"] == "consulta_catalogo"
+    assert "Produto teste" in dados["resposta"]
+    assert "R$ 18,75" in dados["resposta"]
+
+
+def test_rota_publica_compra_nao_interceptada_v3(
+    ambiente,
+    monkeypatch,
+):
+    cliente, _ = ambiente
+    chamadas = []
+
+    def fluxo_comercial(**kwargs):
+        chamadas.append(kwargs)
+        return {
+            "sucesso": False,
+            "tipo": "esclarecimento",
+            "resposta": "Informe os dados do pedido.",
+            "tempo_ms": 0,
+        }
+
+    monkeypatch.setattr(
+        main,
+        "processar_pedido",
+        fluxo_comercial,
+    )
+
+    resposta = cliente.post(
+        "/lojas/loja-ia-a/atender",
+        json={
+            "mensagem": (
+                "Quero comprar dois cadernos. "
+                "Qual o preco?"
+            )
+        },
+        headers={"Idempotency-Key": "compra-fluxo-v3"},
+    )
+
+    assert resposta.status_code == 200, resposta.text
+    assert len(chamadas) == 1
+    assert resposta.json()["acao_executada"] == (
+        "esclarecimento"
+    )

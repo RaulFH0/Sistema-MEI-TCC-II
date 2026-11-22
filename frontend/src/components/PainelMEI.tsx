@@ -14,6 +14,7 @@ import {
   listarProdutosMei,
   cadastrarProdutoMei,
   atualizarEstoqueMei,
+  atualizarEstoqueMinimoMei,
   type ProdutoMEI,
 } from '../services/meiProdutos'
 
@@ -49,6 +50,16 @@ export default function PainelMEI() {
   const [produtoEditando, setProdutoEditando] =
     useState<number | null>(null)
   const [estoqueNovo, setEstoqueNovo] = useState('')
+  const [buscaProduto, setBuscaProduto] = useState('')
+  const [somenteEsgotados, setSomenteEsgotados] = useState(false)
+  const [somenteAtencao, setSomenteAtencao] = useState(false)
+  const [minimoEditando, setMinimoEditando] = useState<number | null>(null)
+  const [minimoNovo, setMinimoNovo] = useState('')
+
+  const [estoqueGestaoId, setEstoqueGestaoId] = useState('')
+  const [estoqueGestaoQtd, setEstoqueGestaoQtd] = useState('')
+  const [minimoGestaoId, setMinimoGestaoId] = useState('')
+  const [minimoGestaoQtd, setMinimoGestaoQtd] = useState('')
 
   useEffect(() => {
     let ativo = true
@@ -191,6 +202,110 @@ export default function PainelMEI() {
     }
   }
 
+  async function salvarEstoqueMinimo(produtoId: number) {
+    if (salvando || !sessao) return
+
+    const valor = Number(minimoNovo)
+
+    if (
+      !minimoNovo.trim() ||
+      !Number.isSafeInteger(valor) ||
+      valor < 0
+    ) {
+      setErro('Informe um limite minimo inteiro e valido.')
+      return
+    }
+
+    setSalvando(true)
+    setErro('')
+    setSucesso('')
+
+    try {
+      await atualizarEstoqueMinimoMei(produtoId, valor)
+      setMinimoEditando(null)
+      setMinimoNovo('')
+      setSucesso('Estoque minimo atualizado com sucesso.')
+      setVersao(anterior => anterior + 1)
+    } catch (falha) {
+      setErro(mensagemErro(falha))
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+
+  async function atualizarEstoqueGestao(
+    evento: FormEvent<HTMLFormElement>
+  ) {
+    evento.preventDefault()
+    if (salvando || !sessao) return
+
+    const id = Number(estoqueGestaoId)
+    const valor = Number(estoqueGestaoQtd)
+
+    if (
+      !estoqueGestaoQtd.trim() ||
+      !Number.isSafeInteger(id) ||
+      id <= 0 ||
+      !Number.isSafeInteger(valor) ||
+      valor < 0 ||
+      !produtos.some(produto => produto.id === id)
+    ) {
+      setErro('Selecione um produto e informe uma quantidade valida.')
+      return
+    }
+
+    setSalvando(true)
+    setErro('')
+    setSucesso('')
+
+    try {
+      await atualizarEstoqueMei(id, valor)
+      setSucesso('Quantidade em estoque atualizada com sucesso.')
+      setVersao(anterior => anterior + 1)
+    } catch (falha) {
+      setErro(mensagemErro(falha))
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  async function atualizarMinimoGestao(
+    evento: FormEvent<HTMLFormElement>
+  ) {
+    evento.preventDefault()
+    if (salvando || !sessao) return
+
+    const id = Number(minimoGestaoId)
+    const valor = Number(minimoGestaoQtd)
+
+    if (
+      !minimoGestaoQtd.trim() ||
+      !Number.isSafeInteger(id) ||
+      id <= 0 ||
+      !Number.isSafeInteger(valor) ||
+      valor < 0 ||
+      !produtos.some(produto => produto.id === id)
+    ) {
+      setErro('Selecione um produto e informe um limite valido.')
+      return
+    }
+
+    setSalvando(true)
+    setErro('')
+    setSucesso('')
+
+    try {
+      await atualizarEstoqueMinimoMei(id, valor)
+      setSucesso('Estoque minimo atualizado com sucesso.')
+      setVersao(anterior => anterior + 1)
+    } catch (falha) {
+      setErro(mensagemErro(falha))
+    } finally {
+      setSalvando(false)
+    }
+  }
+
   async function sair() {
     if (saindo) return
 
@@ -203,12 +318,42 @@ export default function PainelMEI() {
       setProdutos([])
       setSessao(null)
       setProdutoEditando(null)
+      setMinimoEditando(null)
+      setMinimoNovo('')
     } catch (falha) {
       setErro(mensagemErro(falha))
     } finally {
       setSaindo(false)
     }
   }
+
+
+  // Indicadores calculados somente com produtos do MEI logado.
+  const totalProdutos = produtos.length
+  const totalUnidades = produtos.reduce(
+    (total, produto) => total + produto.quantidade,
+    0
+  )
+  const totalEsgotados = produtos.filter(
+    produto => produto.quantidade === 0
+  ).length
+  const totalBaixo = produtos.filter(
+    produto => produto.quantidade > 0 &&
+      produto.quantidade <= produto.estoque_minimo
+  ).length
+
+  const produtosFiltrados = produtos.filter(produto => {
+    const termo = buscaProduto.trim().toLocaleLowerCase('pt-BR')
+    const conteudo = `${produto.nome} ${produto.categoria ?? ''}`
+      .toLocaleLowerCase('pt-BR')
+
+    return (
+      conteudo.includes(termo) &&
+      (!somenteEsgotados || produto.quantidade === 0) &&
+      (!somenteAtencao ||
+        produto.quantidade <= produto.estoque_minimo)
+    )
+  })
 
   if (verificando) {
     return (
@@ -307,8 +452,266 @@ export default function PainelMEI() {
 
       {aba === 'produtos' ? (
         <>
-      <section style={{ marginTop: 32 }}>
-        <h2>Cadastrar produto</h2>
+      <section
+        className="mei-estoque-visao"
+        aria-label="Visao geral do estoque"
+      >
+        <div className="mei-estoque-titulo">
+          <div>
+            <h2>Produtos e estoque</h2>
+            <p>
+              Acompanhe seus produtos e as quantidades
+              disponiveis no estabelecimento.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={carregando}
+            onClick={() => setVersao(anterior => anterior + 1)}
+          >
+            {carregando ? 'Atualizando...' : 'Atualizar'}
+          </button>
+        </div>
+
+        <div className="mei-estoque-cards">
+          <article className="mei-estoque-card">
+            <span>Produtos cadastrados</span>
+            <strong>{carregando ? '...' : totalProdutos}</strong>
+            <small>Tipos de produtos</small>
+          </article>
+
+          <article className="mei-estoque-card">
+            <span>Unidades em estoque</span>
+            <strong>{carregando ? '...' : totalUnidades}</strong>
+            <small>Total disponivel</small>
+          </article>
+
+          <article className="mei-estoque-card">
+            <span>Produtos sem estoque</span>
+            <strong>{carregando ? '...' : totalEsgotados}</strong>
+            <small>Quantidade zerada</small>
+          </article>
+
+          <article className="mei-estoque-card mei-estoque-card-baixo">
+            <span>Produtos com estoque baixo</span>
+            <strong>{carregando ? '...' : totalBaixo}</strong>
+            <small>Quantidade positiva ate o limite minimo</small>
+          </article>
+        </div>
+
+        {!carregando && totalEsgotados > 0 && (
+          <div className="mei-estoque-alerta" role="status">
+            Atencao: {totalEsgotados}{' '}
+            {totalEsgotados === 1
+              ? 'produto esta sem estoque.'
+              : 'produtos estao sem estoque.'}
+          </div>
+        )}
+        {!carregando && totalBaixo > 0 && (
+          <div className="mei-estoque-alerta" role="status">
+            Atencao: {totalBaixo} {totalBaixo === 1
+              ? 'produto precisa de reposicao.'
+              : 'produtos precisam de reposicao.'}
+          </div>
+        )}
+      </section>
+
+      <section className="mei-inventario">
+        <h2>Inventario do meu estabelecimento</h2>
+        <p className="mei-inventario-descricao">
+          Consulte seus produtos, quantidades e limites
+          minimos de reposicao.
+        </p>
+        <div className="mei-estoque-filtros">
+          <input
+            type="search"
+            aria-label="Pesquisar produtos"
+            placeholder="Pesquisar produto ou categoria..."
+            value={buscaProduto}
+            onChange={evento => setBuscaProduto(evento.target.value)}
+          />
+          <label>
+            <input
+              type="checkbox"
+              checked={somenteEsgotados}
+              onChange={evento =>
+                setSomenteEsgotados(evento.target.checked)
+              }
+            />
+            Mostrar somente produtos sem estoque
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={somenteAtencao}
+              onChange={evento =>
+                setSomenteAtencao(evento.target.checked)
+              }
+            />
+            Mostrar produtos que precisam de atencao
+          </label>
+        </div>
+
+
+        {carregando ? (
+          <p>Carregando produtos...</p>
+        ) : produtos.length === 0 ? (
+          <p>Nenhum produto cadastrado nesta loja.</p>
+        ) : produtosFiltrados.length === 0 ? (
+          <p>Nenhum produto encontrado para os filtros atuais.</p>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{
+              width: '100%',
+              borderCollapse: 'collapse',
+              textAlign: 'left',
+            }}>
+              <thead>
+                <tr>
+                  <th>Produto</th>
+                  <th>Preco</th>
+                  <th>Estoque</th>
+                  <th>Limite minimo</th>
+                  <th>Situacao</th>
+                  <th>Configurar limite</th>
+                  <th>Acao</th>
+                </tr>
+              </thead>
+              <tbody>
+                {produtosFiltrados.map(produto => (
+                  <tr key={produto.id}>
+                    <td>{produto.nome}</td>
+                    <td>{moeda.format(produto.preco)}</td>
+                    <td>{produto.quantidade}</td>
+                    <td>{produto.estoque_minimo}</td>
+                    <td>
+                      <span className={`mei-estoque-situacao ${
+                        produto.quantidade === 0 ? 'esgotado' :
+                        produto.quantidade <= produto.estoque_minimo ?
+                        'baixo' : 'normal'
+                      }`}>
+                        {produto.quantidade === 0 ? 'Sem estoque' :
+                          produto.quantidade <= produto.estoque_minimo ?
+                          'Estoque baixo' : 'Disponivel'}
+                      </span>
+                    </td>
+                    <td>
+                      {minimoEditando === produto.id ? (
+                        <div className="mei-estoque-edicao">
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            aria-label={`Novo estoque minimo de ${produto.nome}`}
+                            value={minimoNovo}
+                            onChange={evento =>
+                              setMinimoNovo(evento.target.value)
+                            }
+                          />
+                          <button
+                            type="button"
+                            disabled={salvando}
+                            onClick={() =>
+                              void salvarEstoqueMinimo(produto.id)
+                            }
+                          >
+                            Salvar
+                          </button>
+                          <button
+                            type="button"
+                            disabled={salvando}
+                            onClick={() => setMinimoEditando(null)}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={salvando}
+                          onClick={() => {
+                            setMinimoEditando(produto.id)
+                            setMinimoNovo(
+                              String(produto.estoque_minimo)
+                            )
+                          }}
+                        >
+                          Alterar limite
+                        </button>
+                      )}
+                    </td>
+                    <td>
+                      {produtoEditando === produto.id ? (
+                        <div style={{
+                          display: 'flex',
+                          gap: 8,
+                          flexWrap: 'wrap',
+                        }}>
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            aria-label={
+                              `Novo estoque de ${produto.nome}`
+                            }
+                            value={estoqueNovo}
+                            onChange={e =>
+                              setEstoqueNovo(e.target.value)
+                            }
+                            style={{ width: 90 }}
+                          />
+                          <button
+                            type="button"
+                            disabled={salvando}
+                            onClick={() =>
+                              void salvarEstoque(produto.id)
+                            }
+                          >
+                            Salvar
+                          </button>
+                          <button
+                            type="button"
+                            disabled={salvando}
+                            onClick={() => setProdutoEditando(null)}
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setProdutoEditando(produto.id)
+                            setEstoqueNovo(
+                              String(produto.quantidade)
+                            )
+                          }}
+                        >
+                          Atualizar estoque
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <section className="mei-gerenciar">
+        <div className="mei-gerenciar-cabecalho">
+          <h2>Gerenciar produtos</h2>
+          <p>
+            Cadastre produtos, atualize quantidades
+            e configure alertas de reposicao.
+          </p>
+        </div>
+
+        <div className="mei-gerenciar-grade">
+          <div className="mei-gerenciar-card">
+
+        <h3>Cadastrar novo produto</h3>
 
         <form onSubmit={cadastrar} style={{
           display: 'grid',
@@ -373,93 +776,132 @@ export default function PainelMEI() {
             {salvando ? 'Salvando...' : 'Cadastrar produto'}
           </button>
         </form>
-      </section>
 
-      <section style={{ marginTop: 36 }}>
-        <h2>Produtos do meu estabelecimento</h2>
-
-        {carregando ? (
-          <p>Carregando produtos...</p>
-        ) : produtos.length === 0 ? (
-          <p>Nenhum produto cadastrado nesta loja.</p>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{
-              width: '100%',
-              borderCollapse: 'collapse',
-              textAlign: 'left',
-            }}>
-              <thead>
-                <tr>
-                  <th>Produto</th>
-                  <th>Preco</th>
-                  <th>Estoque</th>
-                  <th>Acao</th>
-                </tr>
-              </thead>
-              <tbody>
-                {produtos.map(produto => (
-                  <tr key={produto.id}>
-                    <td>{produto.nome}</td>
-                    <td>{moeda.format(produto.preco)}</td>
-                    <td>{produto.quantidade}</td>
-                    <td>
-                      {produtoEditando === produto.id ? (
-                        <div style={{
-                          display: 'flex',
-                          gap: 8,
-                          flexWrap: 'wrap',
-                        }}>
-                          <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            aria-label={
-                              `Novo estoque de ${produto.nome}`
-                            }
-                            value={estoqueNovo}
-                            onChange={e =>
-                              setEstoqueNovo(e.target.value)
-                            }
-                            style={{ width: 90 }}
-                          />
-                          <button
-                            type="button"
-                            disabled={salvando}
-                            onClick={() =>
-                              void salvarEstoque(produto.id)
-                            }
-                          >
-                            Salvar
-                          </button>
-                          <button
-                            type="button"
-                            disabled={salvando}
-                            onClick={() => setProdutoEditando(null)}
-                          >
-                            Cancelar
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setProdutoEditando(produto.id)
-                            setEstoqueNovo(
-                              String(produto.quantidade)
-                            )
-                          }}
-                        >
-                          Atualizar estoque
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
-        )}
+
+          <div className="mei-gerenciar-card">
+            <h3>Atualizar estoque</h3>
+
+            <form onSubmit={atualizarEstoqueGestao}>
+              <label htmlFor="mei-gestao-estoque-produto">
+                Produto
+              </label>
+
+              <select
+                id="mei-gestao-estoque-produto"
+                value={estoqueGestaoId}
+                onChange={evento => {
+                  const id = evento.target.value
+                  const produto = produtos.find(
+                    item => String(item.id) === id
+                  )
+                  setEstoqueGestaoId(id)
+                  setEstoqueGestaoQtd(
+                    produto ? String(produto.quantidade) : ''
+                  )
+                }}
+                required
+              >
+                <option value="">Selecione um produto</option>
+                {produtos.map(produto => (
+                  <option key={produto.id} value={produto.id}>
+                    {produto.nome}
+                  </option>
+                ))}
+              </select>
+
+              <label htmlFor="mei-gestao-estoque-quantidade">
+                Nova quantidade total
+              </label>
+
+              <input
+                id="mei-gestao-estoque-quantidade"
+                type="number"
+                min="0"
+                step="1"
+                value={estoqueGestaoQtd}
+                onChange={evento =>
+                  setEstoqueGestaoQtd(evento.target.value)
+                }
+                required
+              />
+
+              <p className="mei-gerenciar-ajuda">
+                A quantidade informada substitui o estoque
+                atual. Nao representa uma entrada adicional.
+              </p>
+
+              <button
+                type="submit"
+                disabled={salvando || !estoqueGestaoId}
+              >
+                {salvando ? 'Salvando...' : 'Atualizar estoque'}
+              </button>
+            </form>
+          </div>
+
+          <div className="mei-gerenciar-card">
+            <h3>Configurar estoque minimo</h3>
+
+            <form onSubmit={atualizarMinimoGestao}>
+              <label htmlFor="mei-gestao-minimo-produto">
+                Produto
+              </label>
+
+              <select
+                id="mei-gestao-minimo-produto"
+                value={minimoGestaoId}
+                onChange={evento => {
+                  const id = evento.target.value
+                  const produto = produtos.find(
+                    item => String(item.id) === id
+                  )
+                  setMinimoGestaoId(id)
+                  setMinimoGestaoQtd(
+                    produto ? String(produto.estoque_minimo) : ''
+                  )
+                }}
+                required
+              >
+                <option value="">Selecione um produto</option>
+                {produtos.map(produto => (
+                  <option key={produto.id} value={produto.id}>
+                    {produto.nome}
+                  </option>
+                ))}
+              </select>
+
+              <label htmlFor="mei-gestao-minimo-quantidade">
+                Quantidade minima
+              </label>
+
+              <input
+                id="mei-gestao-minimo-quantidade"
+                type="number"
+                min="0"
+                step="1"
+                value={minimoGestaoQtd}
+                onChange={evento =>
+                  setMinimoGestaoQtd(evento.target.value)
+                }
+                required
+              />
+
+              <p className="mei-gerenciar-ajuda">
+                Define o limite desejado de estoque.
+                O sistema sinaliza quando a quantidade
+                atinge ou fica abaixo desse limite.
+              </p>
+
+              <button
+                type="submit"
+                disabled={salvando || !minimoGestaoId}
+              >
+                {salvando ? 'Salvando...' : 'Salvar estoque minimo'}
+              </button>
+            </form>
+          </div>
+        </div>
       </section>
         </>
       ) : aba === 'vendas' ? (

@@ -9,6 +9,7 @@ export interface ProdutoMEI {
   nome: string
   preco: number
   quantidade: number
+  estoque_minimo: number
   descricao?: string | null
   categoria?: string | null
 }
@@ -131,6 +132,40 @@ export async function atualizarEstoqueMei(
     return respostaErro(
       resposta,
       'Nao foi possivel atualizar o estoque.'
+    )
+  }
+}
+
+
+export async function atualizarEstoqueMinimoMei(
+  produtoId: number,
+  estoqueMinimo: number
+): Promise<void> {
+  if (
+    !Number.isSafeInteger(produtoId) ||
+    produtoId <= 0 ||
+    !Number.isSafeInteger(estoqueMinimo) ||
+    estoqueMinimo < 0
+  ) {
+    throw new Error('Produto ou estoque minimo invalido.')
+  }
+
+  const resposta = await fetch(
+    `${BASE}/${produtoId}/estoque-minimo`,
+    {
+      method: 'PATCH',
+      credentials: 'same-origin',
+      headers: cabecalhosEscrita(),
+      body: JSON.stringify({
+        estoque_minimo: estoqueMinimo,
+      }),
+    }
+  )
+
+  if (!resposta.ok) {
+    return respostaErro(
+      resposta,
+      'Nao foi possivel atualizar o estoque minimo.'
     )
   }
 }

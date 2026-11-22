@@ -40,3 +40,19 @@ backups/
 # Bancos de dados experimentais
 sistema_mei_teste.db
 *.bak
+
+# Protecao local - Sistema MEI TCC II
+!.env.sample
+frontend/node_modules/
+frontend/dist/
+node_modules/
+dist/
+*.sqlite-wal
+*.sqlite-shm
+*.pem
+*.key
+.DS_Store
+
+# Ambientes locais e credenciais
+.venv-*/
+venv-*/

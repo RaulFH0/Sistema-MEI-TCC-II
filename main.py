@@ -53,6 +53,11 @@ from schemas.pedido import (
 from rag.loader import carregar_base_conhecimento
 from crew.orquestrador import processar_pedido
 from security.consulta_catalogo_ia import consultar_catalogo
+from security.consulta_catalogo_ia import normalizar as normalizar_consulta
+from security.consulta_produto_ia import consultar_produto_especifico
+from security.atendimento_conversacional import (
+    responder_saudacao,
+)
 
 
 # ============================================================
@@ -724,6 +729,16 @@ def atender_cliente_mei(
     loja = _resolver_loja(db, slug)
     estabelecimento_id = loja.id
 
+    saudacao = responder_saudacao(entrada.mensagem)
+
+    if saudacao is not None:
+        return RespostaAgente(
+            resposta=saudacao,
+            acao_executada="saudacao",
+            sucesso=True,
+            dados={"tempo_ms": 0},
+        )
+
     # Consultas explicitamente informativas:
     # nao executar o fluxo de compra.
     consulta = consultar_catalogo(
@@ -734,6 +749,64 @@ def atender_cliente_mei(
 
     if consulta is not None:
         return RespostaAgente(**consulta)
+
+    # CONSULTA INDIVIDUAL NA ROTA PUBLICA V3
+    # Reconhecer perguntas informativas sem interceptar compras.
+    texto_intencao = normalizar_consulta(entrada.mensagem)
+
+    palavras = set(
+        "".join(
+            caractere if caractere.isalnum() else " "
+            for caractere in texto_intencao
+        ).split()
+    )
+
+    termos_comerciais = {
+        "comprar", "compro", "compra", "pedido",
+        "pedir", "levar", "encomendar", "reservar",
+        "confirmar", "fechar", "carrinho",
+    }
+
+    termos_consulta = {
+        "preco", "valor", "custa", "custam",
+        "disponivel", "disponiveis", "disponibilidade",
+        "estoque",
+    }
+
+    consulta_individual = (
+        not palavras.intersection(termos_comerciais)
+        and (
+            bool(palavras.intersection(termos_consulta))
+            or (
+                "quanto" in palavras
+                and bool(palavras.intersection({"e", "sai"}))
+            )
+        )
+    )
+
+    if consulta_individual:
+        resultado_consulta = consultar_produto_especifico(
+            db,
+            estabelecimento_id,
+            entrada.mensagem,
+        )
+
+        if resultado_consulta is not None:
+            return RespostaAgente(**resultado_consulta)
+
+        return RespostaAgente(
+            resposta=(
+                "Nao identifiquei um produto correspondente "
+                "no catalogo desta loja. Informe o nome "
+                "ou consulte a lista de produtos."
+            ),
+            acao_executada="solicitar_esclarecimento",
+            sucesso=True,
+            dados={
+                "tipo": "esclarecimento",
+                "compra_registrada": False,
+            },
+        )
 
     try:
         resultado = processar_pedido(
@@ -756,6 +829,17 @@ def atender_cliente_mei(
         ) from erro
 
     tempo_ms = resultado.get("tempo_ms", 0)
+
+    if resultado.get("tipo") == "esclarecimento":
+        return RespostaAgente(
+            resposta=resultado.get(
+                "resposta",
+                "Pode esclarecer sua solicitacao?"
+            ),
+            acao_executada="esclarecimento",
+            sucesso=True,
+            dados={"tempo_ms": tempo_ms},
+        )
 
     # --------------------------------------------------------
     # COMPRA CONFIRMADA OU REQUISICAO REPETIDA

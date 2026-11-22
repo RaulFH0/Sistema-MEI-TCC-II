@@ -8,7 +8,7 @@ from fastapi import (
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from database.models import get_db
+from database.models import Produto, get_db
 
 from database.crud import (
     criar_produto_mei,
@@ -45,6 +45,10 @@ class EstoqueMEIEntrada(BaseModel):
     nova_quantidade: int = Field(ge=0)
 
 
+class EstoqueMinimoMEIEntrada(BaseModel):
+    estoque_minimo: int = Field(strict=True, ge=0)
+
+
 # ============================================================
 # FORMATACAO DOS RESULTADOS
 # ============================================================
@@ -56,6 +60,7 @@ def _produto_resposta(produto):
         "nome": produto.nome,
         "preco": produto.preco,
         "quantidade": produto.quantidade,
+        "estoque_minimo": produto.estoque_minimo,
         "descricao": produto.descricao,
         "categoria": produto.categoria,
     }
@@ -177,5 +182,43 @@ def atualizar_estoque_autenticado(
 
     except ValueError as erro:
         _erro_validacao(erro)
+
+    return _produto_resposta(produto)
+
+
+# Configuracao do estoque minimo do MEI autenticado.
+@router.patch("/{produto_id}/estoque-minimo")
+def atualizar_estoque_minimo_autenticado(
+    produto_id: int,
+    entrada: EstoqueMinimoMEIEntrada,
+    identidade: dict = Depends(exigir_mei_escrita),
+    db: Session = Depends(get_db),
+):
+    if produto_id < 1:
+        raise HTTPException(
+            status_code=422,
+            detail="Produto invalido."
+        )
+
+    produto = db.query(Produto).filter(
+        Produto.id == produto_id,
+        Produto.estabelecimento_id ==
+            identidade["estabelecimento_id"],
+    ).first()
+
+    if produto is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Produto nao encontrado."
+        )
+
+    produto.estoque_minimo = entrada.estoque_minimo
+
+    try:
+        db.commit()
+        db.refresh(produto)
+    except Exception:
+        db.rollback()
+        raise
 
     return _produto_resposta(produto)
